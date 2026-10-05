@@ -16,11 +16,14 @@ Template repository. Replace this section when you start a real project.
 | Task             | Command                |
 | ---------------- | ---------------------- |
 | Install          | `npm install`          |
+| Run (API + UI)   | `npm run dev`          |
+| Test             | `npm test`             |
+| Typecheck        | `npm run typecheck`    |
+| Build            | `npm run build`        |
+| MCP server       | `npm run mcp`          |
 | Format           | `npm run format`       |
 | Check formatting | `npm run format:check` |
 | Lint commits     | `npm run lint:commits` |
-
-Add build, test and lint commands for your stack here.
 
 ## Conventions
 
