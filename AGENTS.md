@@ -5,9 +5,20 @@ files such as `CLAUDE.md` point here so there is a single source of truth.
 
 ## Project overview
 
-<!-- Replace with a 2-3 sentence description of what this project is. -->
+Bureau is a web app for managing publishing schedules across Ghost and Buffer:
+a drag-and-drop calendar, relationships between items on different platforms,
+analytics, and a read-only MCP server for AI analysis. TypeScript on Node 22.9+,
+React + Vite for the UI, Hono for the API. See `README.md` and
+`docs/adr/0002-stack-and-architecture.md`.
 
-Template repository. Replace this section when you start a real project.
+- Domain logic lives in `src/core/` and is shared by the API, the UI and the
+  MCP server; keep it free of Node and browser APIs.
+- Services are reached only through the `Provider` interface in
+  `src/server/providers/types.ts`. Bureau changes publishing times and nothing
+  else: do not add content editing without an ADR.
+- Without credentials the app runs on mock providers
+  (`src/server/providers/mock*.ts`) that replay real API payload shapes; keep
+  them in step with the live clients.
 
 ## Commands
 
@@ -16,11 +27,14 @@ Template repository. Replace this section when you start a real project.
 | Task             | Command                |
 | ---------------- | ---------------------- |
 | Install          | `npm install`          |
+| Run (API + UI)   | `npm run dev`          |
+| Test             | `npm test`             |
+| Typecheck        | `npm run typecheck`    |
+| Build            | `npm run build`        |
+| MCP server       | `npm run mcp`          |
 | Format           | `npm run format`       |
 | Check formatting | `npm run format:check` |
 | Lint commits     | `npm run lint:commits` |
-
-Add build, test and lint commands for your stack here.
 
 ## Conventions
 

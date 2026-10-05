@@ -37,3 +37,4 @@ tmp/
 
 # Local agent settings
 .claude/settings.local.json
+data/
