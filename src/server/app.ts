@@ -22,13 +22,13 @@ export function createApi(bureau: Bureau, auth: AuthConfig | null): Hono {
     return c.json({ error: error.message }, status as 400);
   });
 
+  // Better Auth checks the origin of its own routes; these guard Bureau's.
+  api.on(['GET', 'POST'], '/auth/*', guard.handler);
   api.use('*', guard.sameOrigin, guard.requireSession);
 
   api.get('/health', (c) => c.json({ ok: true }));
 
   api.get('/session', guard.session);
-  api.post('/login', guard.login);
-  api.post('/logout', guard.logout);
 
   api.get('/overview', async (c) => c.json(await bureau.overview()));
 

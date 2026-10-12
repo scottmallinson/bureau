@@ -25,10 +25,15 @@ export interface RescheduleResult {
   skipped: Array<{ itemId: string; reason: string }>;
 }
 
+export type ProviderName = 'google' | 'github' | 'microsoft' | 'linkedin';
+
 export interface Session {
   /** False when the server runs without a login (loopback only). */
   required: boolean;
   authenticated: boolean;
+  /** The providers the server offers, in display order. */
+  providers: ProviderName[];
+  user: { email: string; name: string } | null;
 }
 
 /** Fired when the API says the session has gone, so the app can show sign-in. */
@@ -39,7 +44,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
-  if (response.status === 401 && path !== '/login') {
+  if (response.status === 401) {
     window.dispatchEvent(new Event(SIGNED_OUT));
   }
   if (!response.ok) {
@@ -52,11 +57,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   session: () => request<Session>('/session'),
-
-  login: (password: string) =>
-    request<void>('/login', { method: 'POST', body: JSON.stringify({ password }) }),
-
-  logout: () => request<void>('/logout', { method: 'POST' }),
 
   overview: () => request<Overview>('/overview'),
 

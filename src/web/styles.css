@@ -326,7 +326,7 @@ main {
   padding: 16px;
 }
 
-.sign-in form {
+.sign-in-card {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -342,15 +342,8 @@ main {
   margin-bottom: 8px;
 }
 
-.sign-in label {
-  color: var(--text-2);
-}
-
-.sign-in input {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  border-radius: 6px;
-  padding: 7px 10px;
+.sign-in button {
+  padding: 8px 10px;
 }
 
 .sign-in .error-text {

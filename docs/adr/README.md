@@ -4,8 +4,8 @@ We record significant decisions as short ADRs, numbered sequentially
 (`0001-title.md`). Never edit an accepted ADR's decision; supersede it with a
 new one. Copy [`0000-template.md`](0000-template.md) to start.
 
-| ADR                                           | Title                             | Status   |
-| --------------------------------------------- | --------------------------------- | -------- |
-| [0001](0001-record-architecture-decisions.md) | Record architecture decisions     | Accepted |
-| [0002](0002-stack-and-architecture.md)        | Stack and architecture for Bureau | Proposed |
-| [0003](0003-single-owner-sign-in.md)          | Single-owner sign-in              | Proposed |
+| ADR                                           | Title                              | Status   |
+| --------------------------------------------- | ---------------------------------- | -------- |
+| [0001](0001-record-architecture-decisions.md) | Record architecture decisions      | Accepted |
+| [0002](0002-stack-and-architecture.md)        | Stack and architecture for Bureau  | Proposed |
+| [0003](0003-single-owner-sign-in.md)          | Single-owner sign-in through OAuth | Proposed |

@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import type { AuthConfig } from './auth.js';
+import { PROVIDERS, type AuthConfig, type ProviderName } from './auth.js';
 
 export interface GhostConfig {
   /** The site's URL, e.g. https://example.com. */
@@ -61,33 +61,70 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     };
   }
 
-  if (env.BUREAU_PASSWORD || env.BUREAU_SESSION_SECRET) {
-    config.auth = loadAuth(env);
-  }
+  const auth = loadAuth(env);
+  if (auth) config.auth = auth;
 
   return config;
 }
 
-const MIN_PASSWORD = 12;
 const MIN_SECRET = 32;
 
-function loadAuth(env: NodeJS.ProcessEnv): AuthConfig {
-  const password = env.BUREAU_PASSWORD ?? '';
-  const sessionSecret = env.BUREAU_SESSION_SECRET ?? '';
-  // A login that half works is worse than none, so a weak setup stops the server.
-  if (password.length < MIN_PASSWORD) {
-    throw new Error(`BUREAU_PASSWORD must be at least ${MIN_PASSWORD} characters`);
+const PROVIDER_ENV: Record<ProviderName, string> = {
+  google: 'GOOGLE',
+  github: 'GITHUB',
+  microsoft: 'MICROSOFT',
+  linkedin: 'LINKEDIN',
+};
+
+/**
+ * Sign-in is on when any provider has a client ID and secret. A half-made
+ * setup stops the server rather than quietly leaving it open.
+ */
+function loadAuth(env: NodeJS.ProcessEnv): AuthConfig | undefined {
+  const providers: AuthConfig['providers'] = {};
+  for (const name of PROVIDERS) {
+    const prefix = PROVIDER_ENV[name];
+    const clientId = env[`${prefix}_CLIENT_ID`];
+    const clientSecret = env[`${prefix}_CLIENT_SECRET`];
+    if (Boolean(clientId) !== Boolean(clientSecret)) {
+      throw new Error(`Set both ${prefix}_CLIENT_ID and ${prefix}_CLIENT_SECRET, or neither`);
+    }
+    if (clientId && clientSecret) {
+      providers[name] = { clientId, clientSecret };
+      if (name === 'microsoft' && env.MICROSOFT_TENANT_ID) {
+        providers[name].tenantId = env.MICROSOFT_TENANT_ID;
+      }
+    }
   }
-  if (sessionSecret.length < MIN_SECRET) {
+
+  const allowedEmails = (env.BUREAU_ALLOWED_EMAILS ?? '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  const secret = env.BETTER_AUTH_SECRET ?? '';
+
+  if (Object.keys(providers).length === 0) {
+    if (allowedEmails.length) {
+      throw new Error('BUREAU_ALLOWED_EMAILS is set but no sign-in provider is configured');
+    }
+    return undefined;
+  }
+  if (!allowedEmails.length) {
+    throw new Error('Set BUREAU_ALLOWED_EMAILS to the addresses allowed to sign in');
+  }
+  if (secret.length < MIN_SECRET) {
     throw new Error(
-      `BUREAU_SESSION_SECRET must be at least ${MIN_SECRET} characters (try: openssl rand -base64 32)`,
+      `BETTER_AUTH_SECRET must be at least ${MIN_SECRET} characters (try: openssl rand -base64 32)`,
     );
   }
-  const sessionDays = Number(env.BUREAU_SESSION_DAYS ?? 30);
+  const sessionDays = Number(env.BUREAU_SESSION_DAYS ?? 7);
   if (!Number.isFinite(sessionDays) || sessionDays <= 0) {
     throw new Error('BUREAU_SESSION_DAYS must be a positive number');
   }
-  return { password, sessionSecret, sessionDays };
+
+  const auth: AuthConfig = { secret, allowedEmails, providers, sessionDays };
+  if (env.BETTER_AUTH_URL) auth.baseURL = env.BETTER_AUTH_URL.replace(/\/+$/, '');
+  return auth;
 }
 
 /** True when only this machine can reach the server. */

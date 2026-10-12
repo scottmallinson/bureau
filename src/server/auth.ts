@@ -1,69 +1,94 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import type { Context, MiddlewareHandler } from 'hono';
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import { sign, verify } from 'hono/jwt';
+
+/** The sign-in providers Bureau knows how to configure. */
+export const PROVIDERS = ['google', 'github', 'microsoft', 'linkedin'] as const;
+export type ProviderName = (typeof PROVIDERS)[number];
+
+export interface ProviderCredentials {
+  clientId: string;
+  clientSecret: string;
+  /** Microsoft only: the Entra tenant, or `common` for any account. */
+  tenantId?: string;
+}
 
 export interface AuthConfig {
-  /** The owner's password. Bureau has one user. */
-  password: string;
-  /** Signs session cookies. Rotating it signs everyone out. */
-  sessionSecret: string;
+  /** Encrypts and signs session cookies. Rotating it signs everyone out. */
+  secret: string;
+  /** Where Bureau is served, e.g. https://bureau.example.com. Callbacks are built from it. */
+  baseURL?: string;
+  /** Verified email addresses allowed in. Everyone else is turned away. */
+  allowedEmails: string[];
+  providers: Partial<Record<ProviderName, ProviderCredentials>>;
   /** How long a sign-in lasts. */
   sessionDays: number;
 }
 
-export const SESSION_COOKIE = 'bureau_session';
+/** True when the provider vouches for the address and it is on the list. */
+export function isAllowed(
+  user: { email?: string | null; emailVerified?: boolean | null },
+  allowedEmails: readonly string[],
+): boolean {
+  const email = user.email?.trim().toLowerCase();
+  return Boolean(email && user.emailVerified === true && allowedEmails.includes(email));
+}
 
-/** Failed sign-ins allowed per window, across all clients, before Bureau stops checking. */
-const MAX_FAILURES = 10;
-const FAILURE_WINDOW_MS = 15 * 60_000;
+/**
+ * Sign-in through Google, GitHub, Microsoft or LinkedIn, via Better Auth.
+ *
+ * Bureau has no database, so this runs Better Auth stateless: the session and
+ * the OAuth state live in encrypted cookies, which works the same on one Node
+ * process or many serverless instances. Any provider will authenticate anyone,
+ * so the allowlist is what makes this single-owner.
+ */
+export function createBetterAuth(config: AuthConfig) {
+  const socialProviders: NonNullable<BetterAuthOptions['socialProviders']> = {};
+  const { google, github, microsoft, linkedin } = config.providers;
+  if (google) socialProviders.google = { ...google, prompt: 'select_account' };
+  if (github) socialProviders.github = github;
+  if (microsoft)
+    socialProviders.microsoft = { ...microsoft, tenantId: microsoft.tenantId ?? 'common' };
+  if (linkedin) socialProviders.linkedin = linkedin;
+
+  return betterAuth({
+    basePath: '/api/auth',
+    secret: config.secret,
+    ...(config.baseURL ? { baseURL: config.baseURL } : {}),
+    socialProviders,
+    session: { expiresIn: config.sessionDays * 86_400 },
+    user: {
+      validateUserInfo: ({ user }) =>
+        isAllowed(user, config.allowedEmails)
+          ? undefined
+          : {
+              error: 'not_allowed',
+              errorDescription: 'This account is not allowed to use Bureau',
+            },
+    },
+    // Failed sign-ins come back to the app, which shows the error.
+    onAPIError: { errorURL: '/' },
+    telemetry: { enabled: false },
+  });
+}
 
 /** Paths under /api that answer without a session. */
-const PUBLIC_PATHS = new Set(['/health', '/session', '/login', '/logout']);
-
-function digest(value: string): Buffer {
-  return createHash('sha256').update(value).digest();
-}
-
-/** Compares in constant time, whatever the lengths. */
-export function passwordMatches(candidate: string, password: string): boolean {
-  return timingSafeEqual(digest(candidate), digest(password));
+function isPublic(path: string): boolean {
+  const rest = path.replace(/^\/api/, '');
+  return rest === '/health' || rest === '/session' || rest.startsWith('/auth/');
 }
 
 /**
- * Cookies are `Secure` everywhere except plain HTTP on loopback, so `npm run
- * dev` still works in browsers that refuse Secure cookies on localhost.
+ * The API's side of sign-in. `config` is null only when the server has decided
+ * running open is safe (see `src/server/index.ts`); then every route answers
+ * and `/session` says so.
  */
-function isSecure(c: Context): boolean {
-  const url = new URL(c.req.url);
-  if (url.protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https') return true;
-  return !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-}
+export function createAuth(config: AuthConfig | null) {
+  const auth = config ? createBetterAuth(config) : null;
+  const providers = config ? PROVIDERS.filter((p) => config.providers[p]) : [];
 
-/**
- * Single-owner sign-in for the JSON API.
- *
- * A session is an HS256 JWT in an HttpOnly, SameSite=Strict cookie, so nothing
- * is stored server-side and it works the same on one Node process or many
- * serverless instances. The UI and its assets stay public: they hold no data,
- * and every call they make for some goes through `requireSession`.
- *
- * `auth` is null only when the server has decided running open is safe (see
- * `src/server/index.ts`); then every route answers and `/session` says so.
- */
-export function createAuth(auth: AuthConfig | null, now: () => number = Date.now) {
-  const failures: number[] = [];
-
-  async function signedIn(c: Context): Promise<boolean> {
-    if (!auth) return true;
-    const token = getCookie(c, SESSION_COOKIE);
-    if (!token) return false;
-    try {
-      const payload = await verify(token, auth.sessionSecret, 'HS256');
-      return payload.sub === 'owner';
-    } catch {
-      return false;
-    }
+  async function sessionOf(c: Context) {
+    if (!auth) return null;
+    return auth.api.getSession({ headers: c.req.raw.headers });
   }
 
   /** Rejects state-changing requests a browser marks as coming from another site. */
@@ -77,56 +102,28 @@ export function createAuth(auth: AuthConfig | null, now: () => number = Date.now
   };
 
   const requireSession: MiddlewareHandler = async (c, next) => {
-    if (PUBLIC_PATHS.has(c.req.path.replace(/^\/api/, '')) || (await signedIn(c))) {
+    if (!auth || isPublic(c.req.path) || (await sessionOf(c))) {
       await next();
       return;
     }
     return c.json({ error: 'Sign in to continue' }, 401);
   };
 
+  /** Better Auth's own routes: sign-in, OAuth callbacks, sign-out. */
+  async function handler(c: Context): Promise<Response> {
+    if (!auth) return c.json({ error: 'Sign-in is not configured' }, 404);
+    return auth.handler(c.req.raw);
+  }
+
   async function session(c: Context) {
-    return c.json({ required: auth !== null, authenticated: await signedIn(c) });
-  }
-
-  async function login(c: Context) {
-    if (!auth) return c.body(null, 204);
-
-    const cutoff = now() - FAILURE_WINDOW_MS;
-    while (failures.length && failures[0]! < cutoff) failures.shift();
-    if (failures.length >= MAX_FAILURES) {
-      const retryAfter = Math.ceil((failures[0]! + FAILURE_WINDOW_MS - now()) / 1000);
-      c.header('Retry-After', String(retryAfter));
-      return c.json({ error: 'Too many failed sign-ins. Try again later.' }, 429);
-    }
-
-    const input = (await c.req.json().catch(() => null)) as { password?: unknown } | null;
-    const password = typeof input?.password === 'string' ? input.password : '';
-    if (!passwordMatches(password, auth.password)) {
-      failures.push(now());
-      return c.json({ error: 'Wrong password' }, 401);
-    }
-
-    const issuedAt = Math.floor(now() / 1000);
-    const maxAge = auth.sessionDays * 86_400;
-    const token = await sign(
-      { sub: 'owner', iat: issuedAt, exp: issuedAt + maxAge },
-      auth.sessionSecret,
-      'HS256',
-    );
-    setCookie(c, SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: isSecure(c),
-      sameSite: 'Strict',
-      path: '/',
-      maxAge,
+    const current = await sessionOf(c);
+    return c.json({
+      required: auth !== null,
+      authenticated: !auth || current !== null,
+      providers,
+      user: current ? { email: current.user.email, name: current.user.name } : null,
     });
-    return c.body(null, 204);
   }
 
-  function logout(c: Context) {
-    deleteCookie(c, SESSION_COOKIE, { path: '/', secure: isSecure(c) });
-    return c.body(null, 204);
-  }
-
-  return { sameOrigin, requireSession, session, login, logout };
+  return { sameOrigin, requireSession, handler, session };
 }

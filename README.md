@@ -89,23 +89,37 @@ How each service maps onto Bureau:
 
 ## Signing in
 
-Bureau can move your scheduled posts, so anywhere but your own machine it needs
-a password. Set both of these and it asks for one:
+Bureau can move your scheduled posts, so anywhere but your own machine it asks
+you to sign in with Google, GitHub, Microsoft or LinkedIn, using
+[Better Auth](https://www.better-auth.com). Only the verified email addresses
+you list get in; anyone else who signs in with one of those providers is
+turned away.
 
-| Variable                | What it is                                                                         |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| `BUREAU_PASSWORD`       | The owner's password, at least 12 characters. Bureau has one user                  |
-| `BUREAU_SESSION_SECRET` | At least 32 random characters that sign session cookies: `openssl rand -base64 32` |
-| `BUREAU_SESSION_DAYS`   | How long a sign-in lasts (30)                                                      |
+| Variable                                         | What it is                                                                                            |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `BUREAU_ALLOWED_EMAILS`                          | Comma-separated addresses allowed in. The provider must report the address as verified                |
+| `BETTER_AUTH_SECRET`                             | At least 32 random characters that encrypt session cookies: `openssl rand -base64 32`                 |
+| `BETTER_AUTH_URL`                                | Where Bureau is served, e.g. `https://bureau.example.com` (`http://localhost:5173` for `npm run dev`) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`       | From a Google Cloud OAuth client (web application)                                                    |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`       | From a GitHub OAuth app                                                                               |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | From a Microsoft Entra app registration; `MICROSOFT_TENANT_ID` narrows it to one tenant (`common`)    |
+| `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`   | From a LinkedIn app with _Sign In with LinkedIn using OpenID Connect_                                 |
+| `BUREAU_SESSION_DAYS`                            | How long a sign-in lasts (7)                                                                          |
 
-Every API route except `/api/health` then needs the session cookie that
-signing in sets; the page itself loads and shows a sign-in form. Ten wrong
-passwords in fifteen minutes pause sign-in until the window passes. Changing
-`BUREAU_SESSION_SECRET` signs out every browser.
+Configure any of the providers; each one you set gets a button on the sign-in
+page. Register `<BETTER_AUTH_URL>/api/auth/callback/<provider>` as the
+redirect URL with each, where `<provider>` is `google`, `github`,
+`microsoft` or `linkedin`.
 
-Without a password, the server listens on `127.0.0.1` only and refuses to
-start if `HOST` points anywhere else. The MCP server needs no password: it
-talks over stdio to a client on the same machine. See
+Bureau has no database, so sessions are stateless: they live in encrypted
+cookies, which works on serverless hosts too. Every API route except
+`/api/health`, `/api/session` and Better Auth's own `/api/auth/*` needs one.
+Changing `BETTER_AUTH_SECRET` signs out every browser.
+
+With no provider configured, the server listens on `127.0.0.1` only and
+refuses to start if `HOST` points anywhere else. A provider without an
+allowlist or a strong secret stops it from starting. The MCP server needs no
+sign-in: it talks over stdio to a client on the same machine. See
 [ADR 0003](docs/adr/0003-single-owner-sign-in.md) for the reasoning.
 
 ## AI analysis over MCP
@@ -153,9 +167,8 @@ The JSON API, for reference:
 
 | Method   | Path                          | Body                                              |
 | -------- | ----------------------------- | ------------------------------------------------- |
-| `GET`    | `/api/session`                | `{ "required": bool, "authenticated": bool }`     |
-| `POST`   | `/api/login`                  | `{ "password": string }`, sets the session cookie |
-| `POST`   | `/api/logout`                 | Clears the session cookie                         |
+| `GET`    | `/api/session`                | Whether sign-in is needed, providers, the user    |
+| `*`      | `/api/auth/*`                 | Better Auth: sign-in, OAuth callbacks, sign-out   |
 | `GET`    | `/api/overview`               | Channels, items, stories, suggestions             |
 | `PUT`    | `/api/items/:id/schedule`     | `{ "scheduledAt": iso \| null, "cascade": bool }` |
 | `POST`   | `/api/relationships`          | `{ "itemIds": [...] }`                            |

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, SIGNED_OUT, type Session } from './api.js';
 import { Icon, Toasts } from './components/common.js';
 import { SignIn } from './components/SignIn.js';
+import { authClient } from './auth.js';
 import { BureauProvider, useBureau } from './state.js';
 import { AnalyticsView } from './views/AnalyticsView.js';
 import { ScheduleView } from './views/ScheduleView.js';
@@ -144,7 +145,7 @@ export function App() {
   }, [check]);
 
   const signOut = useCallback(async () => {
-    await api.logout().catch(() => undefined);
+    await authClient.signOut().catch(() => undefined);
     setSession((s) => s && { ...s, authenticated: false });
   }, []);
 
@@ -159,7 +160,7 @@ export function App() {
   }
 
   if (session.required && !session.authenticated) {
-    return <SignIn onSignedIn={() => void check()} />;
+    return <SignIn providers={session.providers} />;
   }
 
   return (

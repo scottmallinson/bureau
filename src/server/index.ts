@@ -12,7 +12,7 @@ const config = loadConfig();
 // without a login.
 if (!config.auth && !isLoopback(config.host)) {
   console.error(
-    `Refusing to listen on ${config.host} without a login. Set BUREAU_PASSWORD and BUREAU_SESSION_SECRET, or leave HOST unset.`,
+    `Refusing to listen on ${config.host} without a login. Configure a sign-in provider (see README), or leave HOST unset.`,
   );
   process.exit(1);
 }

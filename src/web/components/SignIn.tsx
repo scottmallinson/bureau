@@ -1,51 +1,67 @@
-import { useState, type FormEvent } from 'react';
-import { api } from '../api.js';
+import { useState } from 'react';
+import type { ProviderName } from '../api.js';
+import { authClient } from '../auth.js';
 import { Icon } from './common.js';
 
-export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+const LABELS: Record<ProviderName, string> = {
+  google: 'Google',
+  github: 'GitHub',
+  microsoft: 'Microsoft',
+  linkedin: 'LinkedIn',
+};
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      await api.login(password);
-      setError(undefined);
-      onSignedIn();
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
+const ERRORS: Record<string, string> = {
+  not_allowed: 'That account is not allowed to use Bureau.',
+};
+
+/** Better Auth sends a failed sign-in back here with `?error=`. */
+function errorFromUrl(): string | undefined {
+  const code = new URLSearchParams(window.location.search).get('error');
+  if (!code) return undefined;
+  window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+  return ERRORS[code] ?? `Sign-in failed (${code.replace(/_/g, ' ')}).`;
+}
+
+export function SignIn({ providers }: { providers: ProviderName[] }) {
+  const [busy, setBusy] = useState<ProviderName>();
+  const [error, setError] = useState(errorFromUrl);
+
+  async function signIn(provider: ProviderName) {
+    setBusy(provider);
+    const { error } = await authClient.signIn.social({
+      provider,
+      callbackURL: window.location.pathname + window.location.hash,
+    });
+    // On success the browser is already leaving for the provider.
+    if (error) {
+      setError(error.message ?? 'Sign-in failed.');
+      setBusy(undefined);
     }
   }
 
   return (
     <div className="sign-in">
-      <form onSubmit={(e) => void submit(e)}>
+      <div className="sign-in-card">
         <div className="brand">
           <span className="logo" aria-hidden />
           Bureau
         </div>
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          autoFocus
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
         {error && (
           <p className="error-text" role="alert">
             <Icon name="warn" /> {error}
           </p>
         )}
-        <button className="primary" type="submit" disabled={busy || !password}>
-          Sign in
-        </button>
-      </form>
+        {providers.map((provider) => (
+          <button
+            key={provider}
+            type="button"
+            disabled={busy !== undefined}
+            onClick={() => void signIn(provider)}
+          >
+            Continue with {LABELS[provider]}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
