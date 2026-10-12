@@ -87,9 +87,26 @@ How each service maps onto Bureau:
   each post's `metrics`. Buffer's API reports no follower counts, so enter them
   on the _Analytics_ page; Bureau records when you did.
 
-Bureau has no login of its own and can move your scheduled posts, so the
-server listens on `127.0.0.1` only. Set `HOST` to expose it, and only behind
-something that authenticates.
+## Signing in
+
+Bureau can move your scheduled posts, so anywhere but your own machine it needs
+a password. Set both of these and it asks for one:
+
+| Variable                | What it is                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `BUREAU_PASSWORD`       | The owner's password, at least 12 characters. Bureau has one user                  |
+| `BUREAU_SESSION_SECRET` | At least 32 random characters that sign session cookies: `openssl rand -base64 32` |
+| `BUREAU_SESSION_DAYS`   | How long a sign-in lasts (30)                                                      |
+
+Every API route except `/api/health` then needs the session cookie that
+signing in sets; the page itself loads and shows a sign-in form. Ten wrong
+passwords in fifteen minutes pause sign-in until the window passes. Changing
+`BUREAU_SESSION_SECRET` signs out every browser.
+
+Without a password, the server listens on `127.0.0.1` only and refuses to
+start if `HOST` points anywhere else. The MCP server needs no password: it
+talks over stdio to a client on the same machine. See
+[ADR 0003](docs/adr/0003-single-owner-sign-in.md) for the reasoning.
 
 ## AI analysis over MCP
 
@@ -136,6 +153,9 @@ The JSON API, for reference:
 
 | Method   | Path                          | Body                                              |
 | -------- | ----------------------------- | ------------------------------------------------- |
+| `GET`    | `/api/session`                | `{ "required": bool, "authenticated": bool }`     |
+| `POST`   | `/api/login`                  | `{ "password": string }`, sets the session cookie |
+| `POST`   | `/api/logout`                 | Clears the session cookie                         |
 | `GET`    | `/api/overview`               | Channels, items, stories, suggestions             |
 | `PUT`    | `/api/items/:id/schedule`     | `{ "scheduledAt": iso \| null, "cascade": bool }` |
 | `POST`   | `/api/relationships`          | `{ "itemIds": [...] }`                            |

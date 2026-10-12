@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import type { AuthConfig } from './auth.js';
 
 export interface GhostConfig {
   /** The site's URL, e.g. https://example.com. */
@@ -15,8 +16,10 @@ export interface BufferConfig {
 
 export interface Config {
   port: number;
-  /** Interface to listen on. Loopback by default: the API has no login. */
+  /** Interface to listen on. Loopback by default, so no login is needed. */
   host: string;
+  /** Absent means no login; the server then refuses to listen beyond loopback. */
+  auth?: AuthConfig;
   dataDir: string;
   /** Absent means the Ghost provider runs against mock data. */
   ghost?: GhostConfig;
@@ -58,5 +61,36 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     };
   }
 
+  if (env.BUREAU_PASSWORD || env.BUREAU_SESSION_SECRET) {
+    config.auth = loadAuth(env);
+  }
+
   return config;
+}
+
+const MIN_PASSWORD = 12;
+const MIN_SECRET = 32;
+
+function loadAuth(env: NodeJS.ProcessEnv): AuthConfig {
+  const password = env.BUREAU_PASSWORD ?? '';
+  const sessionSecret = env.BUREAU_SESSION_SECRET ?? '';
+  // A login that half works is worse than none, so a weak setup stops the server.
+  if (password.length < MIN_PASSWORD) {
+    throw new Error(`BUREAU_PASSWORD must be at least ${MIN_PASSWORD} characters`);
+  }
+  if (sessionSecret.length < MIN_SECRET) {
+    throw new Error(
+      `BUREAU_SESSION_SECRET must be at least ${MIN_SECRET} characters (try: openssl rand -base64 32)`,
+    );
+  }
+  const sessionDays = Number(env.BUREAU_SESSION_DAYS ?? 30);
+  if (!Number.isFinite(sessionDays) || sessionDays <= 0) {
+    throw new Error('BUREAU_SESSION_DAYS must be a positive number');
+  }
+  return { password, sessionSecret, sessionDays };
+}
+
+/** True when only this machine can reach the server. */
+export function isLoopback(host: string): boolean {
+  return ['127.0.0.1', '::1', 'localhost'].includes(host);
 }

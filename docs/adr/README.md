@@ -8,3 +8,4 @@ new one. Copy [`0000-template.md`](0000-template.md) to start.
 | --------------------------------------------- | --------------------------------- | -------- |
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions     | Accepted |
 | [0002](0002-stack-and-architecture.md)        | Stack and architecture for Bureau | Proposed |
+| [0003](0003-single-owner-sign-in.md)          | Single-owner sign-in              | Proposed |

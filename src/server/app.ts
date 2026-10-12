@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { createAuth, type AuthConfig } from './auth.js';
 import { Bureau, BureauError, errorStatus } from './bureau.js';
 
 function body<T>(value: unknown, check: (v: Record<string, unknown>) => T): T {
@@ -7,9 +8,13 @@ function body<T>(value: unknown, check: (v: Record<string, unknown>) => T): T {
   return check(value as Record<string, unknown>);
 }
 
-/** The JSON API the web UI talks to. Every route is a thin call into Bureau. */
-export function createApi(bureau: Bureau): Hono {
+/**
+ * The JSON API the web UI talks to. Every route is a thin call into Bureau,
+ * and every route but health and sign-in needs a session when `auth` is set.
+ */
+export function createApi(bureau: Bureau, auth: AuthConfig | null): Hono {
   const api = new Hono();
+  const guard = createAuth(auth);
 
   api.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
@@ -17,7 +22,13 @@ export function createApi(bureau: Bureau): Hono {
     return c.json({ error: error.message }, status as 400);
   });
 
+  api.use('*', guard.sameOrigin, guard.requireSession);
+
   api.get('/health', (c) => c.json({ ok: true }));
+
+  api.get('/session', guard.session);
+  api.post('/login', guard.login);
+  api.post('/logout', guard.logout);
 
   api.get('/overview', async (c) => c.json(await bureau.overview()));
 
@@ -80,8 +91,9 @@ export function createApi(bureau: Bureau): Hono {
   return api;
 }
 
-export function createApp(bureau: Bureau): Hono {
+/** `auth` is required on purpose: running without a login has to be a decision. */
+export function createApp(bureau: Bureau, auth: AuthConfig | null): Hono {
   const app = new Hono();
-  app.route('/api', createApi(bureau));
+  app.route('/api', createApi(bureau, auth));
   return app;
 }

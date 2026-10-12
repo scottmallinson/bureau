@@ -3,7 +3,7 @@ import { createApp } from '../src/server/app.js';
 import { demoBureau, NOW } from './helpers.js';
 
 async function app() {
-  return createApp(await demoBureau());
+  return createApp(await demoBureau(), null);
 }
 
 const json = (body: unknown) => ({

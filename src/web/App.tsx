@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { api, SIGNED_OUT, type Session } from './api.js';
 import { Icon, Toasts } from './components/common.js';
+import { SignIn } from './components/SignIn.js';
 import { BureauProvider, useBureau } from './state.js';
 import { AnalyticsView } from './views/AnalyticsView.js';
 import { ScheduleView } from './views/ScheduleView.js';
@@ -18,7 +20,7 @@ function tabFromHash(): Tab {
   return TABS.some((t) => t.id === hash) ? (hash as Tab) : 'schedule';
 }
 
-function Shell() {
+function Shell({ onSignOut }: { onSignOut: (() => void) | undefined }) {
   const { overview, loading, error, reload } = useBureau();
   const [tab, setTab] = useState<Tab>(tabFromHash);
 
@@ -84,6 +86,11 @@ function Shell() {
           >
             ↻
           </button>
+          {onSignOut && (
+            <button className="link-button small" onClick={onSignOut}>
+              Sign out
+            </button>
+          )}
         </div>
       </header>
 
@@ -117,9 +124,47 @@ function Shell() {
 }
 
 export function App() {
+  const [session, setSession] = useState<Session>();
+  const [error, setError] = useState<string>();
+
+  const check = useCallback(async () => {
+    try {
+      setSession(await api.session());
+      setError(undefined);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+
+  useEffect(() => {
+    void check();
+    const onSignedOut = () => setSession((s) => s && { ...s, authenticated: false });
+    window.addEventListener(SIGNED_OUT, onSignedOut);
+    return () => window.removeEventListener(SIGNED_OUT, onSignedOut);
+  }, [check]);
+
+  const signOut = useCallback(async () => {
+    await api.logout().catch(() => undefined);
+    setSession((s) => s && { ...s, authenticated: false });
+  }, []);
+
+  if (!session) {
+    return error ? (
+      <p className="banner error">
+        <Icon name="warn" /> {error}
+      </p>
+    ) : (
+      <p className="muted pad">Loading…</p>
+    );
+  }
+
+  if (session.required && !session.authenticated) {
+    return <SignIn onSignedIn={() => void check()} />;
+  }
+
   return (
     <BureauProvider>
-      <Shell />
+      <Shell onSignOut={session.required ? () => void signOut() : undefined} />
     </BureauProvider>
   );
 }
