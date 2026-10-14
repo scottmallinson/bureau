@@ -3,12 +3,22 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { createApp } from './app.js';
-import { loadConfig } from './config.js';
+import { isLoopback, loadConfig } from './config.js';
 import { createBureau } from './setup.js';
 
 const config = loadConfig();
+
+// Bureau can move scheduled posts, so it never listens beyond this machine
+// without a login.
+if (!config.auth && !isLoopback(config.host)) {
+  console.error(
+    `Refusing to listen on ${config.host} without a login. Configure a sign-in provider (see README), or leave HOST unset.`,
+  );
+  process.exit(1);
+}
+
 const bureau = createBureau(config);
-const app = createApp(bureau);
+const app = createApp(bureau, config.auth ?? null);
 
 // In production the built UI is served from the same origin as the API. In
 // development Vite serves it and proxies /api here.
@@ -23,6 +33,7 @@ serve({ fetch: app.fetch, port: config.port, hostname: config.host }, (info) => 
   const modes = [
     `Ghost: ${config.ghost ? 'live' : 'mock'}`,
     `Buffer: ${config.buffer ? 'live' : 'mock'}`,
+    `login: ${config.auth ? 'on' : 'off'}`,
   ].join(', ');
   console.log(`Bureau listening on http://${config.host}:${info.port} (${modes})`);
 });
