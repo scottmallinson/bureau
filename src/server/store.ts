@@ -5,6 +5,20 @@ const LOCK_STALE_MS = 30_000;
 const LOCK_RETRY_MS = 25;
 const LOCK_TIMEOUT_MS = 10_000;
 
+/** One JSON document Bureau keeps: read whole, changed under a lock. */
+export interface Store<T> {
+  read(): Promise<T>;
+  update<R>(mutate: (state: T) => R | Promise<R>): Promise<R>;
+}
+
+/** Opens the document called `name`, starting from `initial` when there is none yet. */
+export type Storage = <T>(name: string, initial: () => T) => Store<T>;
+
+/** Each document as `<name>.json` in a directory: the default, and what development uses. */
+export function fileStorage(dataDir: string): Storage {
+  return (name, initial) => JsonStore.in(dataDir, `${name}.json`, initial);
+}
+
 /**
  * A tiny JSON-file store with atomic writes, safe for more than one process.
  *
@@ -18,7 +32,7 @@ const LOCK_TIMEOUT_MS = 10_000;
  * in-memory cache (a second process's writes would be invisible behind one)
  * and every read-modify-write happens under a lock file.
  */
-export class JsonStore<T> {
+export class JsonStore<T> implements Store<T> {
   private writing: Promise<void> = Promise.resolve();
 
   constructor(

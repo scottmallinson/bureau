@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { PROVIDERS, type AuthConfig, type ProviderName } from './auth.js';
+import type { RedisConfig } from './redis-store.js';
 
 export interface GhostConfig {
   /** The site's URL, e.g. https://example.com. */
@@ -20,7 +21,8 @@ export interface Config {
   host: string;
   /** Absent means no login; the server then refuses to listen beyond loopback. */
   auth?: AuthConfig;
-  dataDir: string;
+  /** Where Bureau keeps its own state: files locally, Redis where there is no writable disk. */
+  store: { kind: 'file'; dataDir: string } | ({ kind: 'redis' } & RedisConfig);
   /** Absent means the Ghost provider runs against mock data. */
   ghost?: GhostConfig;
   /** Absent means the Buffer provider runs against mock data. */
@@ -42,7 +44,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const config: Config = {
     port: Number(env.PORT ?? 8787),
     host: env.HOST ?? '127.0.0.1',
-    dataDir: resolve(env.BUREAU_DATA_DIR ?? 'data'),
+    store: loadStore(env),
     historyDays: Number(env.BUREAU_HISTORY_DAYS ?? 90),
   };
 
@@ -65,6 +67,26 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (auth) config.auth = auth;
 
   return config;
+}
+
+/**
+ * Redis when a database is connected, otherwise the data directory. Vercel's
+ * Upstash integration sets either the KV_* or the UPSTASH_* pair, depending on
+ * how it was added. On Vercel the disk is read-only, so a missing database is
+ * an error rather than a store that fails on the first write.
+ */
+function loadStore(env: NodeJS.ProcessEnv): Config['store'] {
+  const url = env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL;
+  const token = env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) {
+    return { kind: 'redis', url, token, prefix: env.BUREAU_REDIS_PREFIX ?? 'bureau:' };
+  }
+  if (env.VERCEL) {
+    throw new Error(
+      'Bureau needs a Redis database on Vercel: connect Upstash Redis from the Marketplace (see README)',
+    );
+  }
+  return { kind: 'file', dataDir: resolve(env.BUREAU_DATA_DIR ?? 'data') };
 }
 
 const MIN_SECRET = 32;
