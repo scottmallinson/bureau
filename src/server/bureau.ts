@@ -14,7 +14,7 @@ import type {
 } from '../core/types.js';
 import { MockBufferProvider } from './providers/mock.js';
 import { ProviderError, type Provider } from './providers/types.js';
-import { JsonStore } from './store.js';
+import type { Storage, Store } from './store.js';
 
 export interface BureauState {
   version: 1;
@@ -69,16 +69,16 @@ const MIN_LEAD_MS = 60_000;
  * and the MCP server are both thin layers over this.
  */
 export class Bureau {
-  private readonly store: JsonStore<BureauState>;
+  private readonly store: Store<BureauState>;
   private itemsCache: { at: number; value: Omit<Overview, 'stories' | 'suggestions'> } | undefined;
   private metricsCache: { at: number; metrics: ItemMetrics[]; stats: ChannelStats[] } | undefined;
 
   constructor(
     private readonly providers: Provider[],
-    dataDir: string,
+    storage: Storage,
     private readonly options: { historyDays?: number; now?: () => Date } = {},
   ) {
-    this.store = JsonStore.in(dataDir, 'bureau.json', initialState);
+    this.store = storage('bureau', initialState);
   }
 
   private now(): Date {

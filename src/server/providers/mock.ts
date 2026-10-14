@@ -1,5 +1,5 @@
 import type { Channel, ChannelStats, ItemMetrics, QueueItem } from '../../core/types.js';
-import { JsonStore } from '../store.js';
+import type { Storage, Store } from '../store.js';
 import { bufferMetrics, toChannel, toItem as bufferItem } from './buffer.js';
 import { ghostMetrics, toItem as ghostItem } from './ghost.js';
 import {
@@ -14,17 +14,18 @@ import { externalId, ProviderError, type Provider } from './types.js';
 /**
  * Stand-ins for Ghost and Buffer when no credentials are configured.
  *
- * State lives in the data directory rather than memory so a reschedule made
- * in the web UI is what the MCP server (a separate process) sees too. Delete
- * `mock-ghost.json` / `mock-buffer.json` to reseed relative to today.
+ * State lives in Bureau's storage rather than memory so a reschedule made in
+ * the web UI is what the MCP server (a separate process) sees too. Delete
+ * `mock-ghost.json` / `mock-buffer.json` (or the matching Redis keys) to reseed
+ * relative to today.
  */
 export class MockGhostProvider implements Provider {
   readonly id = 'ghost' as const;
   readonly mode = 'mock' as const;
-  private readonly store: JsonStore<MockGhostState>;
+  private readonly store: Store<MockGhostState>;
 
-  constructor(dataDir: string, now: () => Date = () => new Date()) {
-    this.store = JsonStore.in(dataDir, 'mock-ghost.json', () => seedGhost(now()));
+  constructor(storage: Storage, now: () => Date = () => new Date()) {
+    this.store = storage('mock-ghost', () => seedGhost(now()));
   }
 
   private async state(): Promise<MockGhostState> {
@@ -104,10 +105,10 @@ export class MockGhostProvider implements Provider {
 export class MockBufferProvider implements Provider {
   readonly id = 'buffer' as const;
   readonly mode = 'mock' as const;
-  private readonly store: JsonStore<MockBufferState>;
+  private readonly store: Store<MockBufferState>;
 
-  constructor(dataDir: string, now: () => Date = () => new Date()) {
-    this.store = JsonStore.in(dataDir, 'mock-buffer.json', () => seedBuffer(now()));
+  constructor(storage: Storage, now: () => Date = () => new Date()) {
+    this.store = storage('mock-buffer', () => seedBuffer(now()));
   }
 
   private async state(): Promise<MockBufferState> {

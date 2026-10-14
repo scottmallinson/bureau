@@ -5,6 +5,7 @@ import { afterEach } from 'vitest';
 import type { QueueItem } from '../src/core/types.js';
 import { Bureau } from '../src/server/bureau.js';
 import { MockBufferProvider, MockGhostProvider } from '../src/server/providers/mock.js';
+import { fileStorage } from '../src/server/store.js';
 
 /** A Monday morning, so the demo week has scheduled items ahead of it. */
 export const NOW = new Date('2026-03-02T07:00:00.000Z');
@@ -22,12 +23,13 @@ export async function tempDir(): Promise<string> {
 }
 
 export async function demoBureau(): Promise<Bureau> {
-  const dir = await tempDir();
+  const storage = fileStorage(await tempDir());
   const now = () => NOW;
-  return new Bureau([new MockGhostProvider(dir, now), new MockBufferProvider(dir, now)], dir, {
-    now,
-    historyDays: 365,
-  });
+  return new Bureau(
+    [new MockGhostProvider(storage, now), new MockBufferProvider(storage, now)],
+    storage,
+    { now, historyDays: 365 },
+  );
 }
 
 export function item(overrides: Partial<QueueItem> & Pick<QueueItem, 'id'>): QueueItem {

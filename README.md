@@ -122,10 +122,42 @@ allowlist or a strong secret stops it from starting. The MCP server needs no
 sign-in: it talks over stdio to a client on the same machine. See
 [ADR 0003](docs/adr/0003-single-owner-sign-in.md) for the reasoning.
 
+## Deploying to Vercel
+
+Bureau deploys to [Vercel](https://vercel.com) as it is: `vercel.json` builds
+the UI as static files and serves the API from one Vercel Function
+(`api/index.js`, which wraps the compiled Hono app).
+
+1. Import the repository as a new Vercel project. Leave the framework preset
+   alone: `vercel.json` sets the build command and output directory.
+2. Add a Redis database: _Storage_ (or the Marketplace) > _Upstash_ >
+   _Upstash for Redis_, connected to the project. A function has no writable
+   disk, so Bureau keeps its links, follower counts and snapshots there
+   instead of in `data/`. The free plan is plenty.
+3. Set the [sign-in](#signing-in) variables, with `BETTER_AUTH_URL` set to the
+   deployment's URL (e.g. `https://bureau.vercel.app`), and register
+   `<BETTER_AUTH_URL>/api/auth/callback/<provider>` with each provider.
+4. Add the Ghost and Buffer variables from
+   [Connecting Ghost and Buffer](#connecting-ghost-and-buffer), or leave them
+   out to try it on demo data, then deploy.
+
+A deployment is public, so until sign-in and a database are configured the API
+answers every request with 503 and the function logs say what is missing.
+
+| Variable                               | What it is                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Set by the Upstash integration. Bureau also reads `UPSTASH_REDIS_REST_URL/TOKEN` |
+| `BUREAU_REDIS_PREFIX`                  | Put before every key (`bureau:`), so previews or two sites can share a database  |
+
+The same variables work anywhere: set them in `.env` and the local server and
+the MCP server use the Redis database instead of `data/`, which lets an
+assistant analyse the deployed Bureau's numbers from your machine. See
+[ADR 0004](docs/adr/0004-vercel-and-redis-storage.md) for the reasoning.
+
 ## AI analysis over MCP
 
 `npm run mcp` (after `npm run build`) starts the MCP server on stdio, against
-the same configuration and data directory as the web app. For Claude Desktop or
+the same configuration and storage (`data/` or Redis) as the web app. For Claude Desktop or
 Claude Code, add:
 
 ```json
@@ -157,6 +189,7 @@ review of the last N days. All tools are read-only.
 ```
 src/core/     Domain types, relationship detection, analytics (shared by everything)
 src/server/   Bureau service, Ghost/Buffer providers, mock providers, JSON API (Hono)
+api/          Vercel Function entry point over the compiled server
 src/mcp/      MCP server over the same Bureau service
 src/web/      React UI (Vite, dnd-kit)
 test/         Vitest suites for core, providers, service, API and MCP
