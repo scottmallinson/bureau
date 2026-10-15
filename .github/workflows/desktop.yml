@@ -43,6 +43,17 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
             exit 1
           fi
+      - name: Upload into a release published by hand
+        # A release published on GitHub (which also creates the tag) already
+        # exists, and electron-builder only uploads into an existing published
+        # release when it is not publishing a draft.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx false; then
+            echo "EP_PRE_RELEASE=true" >> "$GITHUB_ENV"
+          fi
       - run: npm ci
       - run: npm run build:desktop
       - name: Package and publish
