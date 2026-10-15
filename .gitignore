@@ -38,3 +38,6 @@ tmp/
 # Local agent settings
 .claude/settings.local.json
 data/
+
+# Desktop builds
+release/

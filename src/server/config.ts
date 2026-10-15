@@ -15,6 +15,8 @@ export interface BufferConfig {
   organizationId: string;
 }
 
+export const DEFAULT_BUFFER_API_URL = 'https://api.buffer.com';
+
 export interface Config {
   port: number;
   /** Interface to listen on. Loopback by default, so no login is needed. */
@@ -23,10 +25,12 @@ export interface Config {
   auth?: AuthConfig;
   /** Where Bureau keeps its own state: files locally, Redis where there is no writable disk. */
   store: { kind: 'file'; dataDir: string } | ({ kind: 'redis' } & RedisConfig);
-  /** Absent means the Ghost provider runs against mock data. */
+  /** Set from the environment. Absent means settings saved in the app apply, or mock data. */
   ghost?: GhostConfig;
-  /** Absent means the Buffer provider runs against mock data. */
+  /** Set from the environment. Absent means settings saved in the app apply, or mock data. */
   buffer?: BufferConfig;
+  /** `BUREAU_MOCK` is set: both integrations run on mock data whatever is configured. */
+  forceMock: boolean;
   /** How far back to load published items, in days. */
   historyDays: number;
 }
@@ -36,7 +40,9 @@ export interface Config {
  *
  * Each integration is independent: set Ghost's two variables and leave
  * Buffer's empty, and Bureau talks to your real Ghost site next to a mocked
- * Buffer. `BUREAU_MOCK=1` forces both to mock data regardless.
+ * Buffer. Integrations the environment leaves out can be set up in the app's
+ * Settings instead (see `integrations.ts`). `BUREAU_MOCK=1` forces both to
+ * mock data regardless.
  */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const forceMock = env.BUREAU_MOCK === '1' || env.BUREAU_MOCK === 'true';
@@ -46,6 +52,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? '127.0.0.1',
     store: loadStore(env),
     historyDays: Number(env.BUREAU_HISTORY_DAYS ?? 90),
+    forceMock,
   };
 
   if (!forceMock && env.GHOST_ADMIN_API_URL && env.GHOST_ADMIN_API_KEY) {
@@ -57,7 +64,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   if (!forceMock && env.BUFFER_API_KEY && env.BUFFER_ORGANIZATION_ID) {
     config.buffer = {
-      apiUrl: env.BUFFER_API_URL ?? 'https://api.buffer.com',
+      apiUrl: env.BUFFER_API_URL ?? DEFAULT_BUFFER_API_URL,
       apiKey: env.BUFFER_API_KEY,
       organizationId: env.BUFFER_ORGANIZATION_ID,
     };

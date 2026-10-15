@@ -1,0 +1,45 @@
+# Packages the desktop app. `npm run dist:desktop` builds for the current
+# platform into release/; .github/workflows/desktop.yml builds and publishes
+# both platforms when a version tag is pushed. See README, "Desktop app".
+appId: com.scottmallinson.bureau
+productName: Bureau
+copyright: Copyright Scott Mallinson
+
+directories:
+  output: release
+  buildResources: build-resources
+
+# The compiled app and its production dependencies. Source maps stay out.
+files:
+  - dist/**/*
+  - '!dist/**/*.map'
+  - package.json
+
+mac:
+  target:
+    - target: dmg
+      arch: universal
+    # Updates on macOS install from the zip, not the dmg.
+    - target: zip
+      arch: universal
+  category: public.app-category.productivity
+  minimumSystemVersion: '12.0'
+  hardenedRuntime: true
+  # Notarises when APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID
+  # are set, and skips it otherwise.
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+# Where installed apps look for updates.
+publish:
+  provider: github
+  owner: scottmallinson
+  repo: bureau

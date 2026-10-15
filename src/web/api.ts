@@ -36,6 +36,25 @@ export interface Session {
   user: { email: string; name: string } | null;
 }
 
+export type IntegrationId = 'ghost' | 'buffer';
+export type IntegrationSource = 'environment' | 'settings' | 'demo';
+
+/** Where Ghost and Buffer are configured. Keys are never sent back, only whether one is set. */
+export interface IntegrationStatus {
+  forcedDemo: boolean;
+  ghost: { source: IntegrationSource; url?: string; keySet: boolean; error?: string };
+  buffer: {
+    source: IntegrationSource;
+    organizationId?: string;
+    apiUrl?: string;
+    keySet: boolean;
+    error?: string;
+  };
+}
+
+/** A Settings form. A blank key keeps the saved one. */
+export type IntegrationForm = Record<string, string>;
+
 /** Fired when the API says the session has gone, so the app can show sign-in. */
 export const SIGNED_OUT = 'bureau:signed-out';
 
@@ -80,6 +99,23 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ followers }),
     }),
+
+  integrations: () => request<IntegrationStatus>('/settings/integrations'),
+
+  saveIntegration: (id: IntegrationId, form: IntegrationForm) =>
+    request<IntegrationStatus>(`/settings/integrations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(form),
+    }),
+
+  testIntegration: (id: IntegrationId, form: IntegrationForm) =>
+    request<{ channels: number; items: number }>(`/settings/integrations/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify(form),
+    }),
+
+  clearIntegration: (id: IntegrationId) =>
+    request<IntegrationStatus>(`/settings/integrations/${id}`, { method: 'DELETE' }),
 
   analytics: (range: { from?: string; refresh?: boolean }) => {
     const query = new URLSearchParams();

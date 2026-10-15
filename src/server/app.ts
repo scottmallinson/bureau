@@ -1,7 +1,13 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { createAuth, type AuthConfig } from './auth.js';
 import { Bureau, BureauError, errorStatus } from './bureau.js';
+import type { IntegrationInput, Integrations } from './integrations.js';
+
+function integrationId(id: string): 'ghost' | 'buffer' {
+  if (id !== 'ghost' && id !== 'buffer') throw new BureauError(`Unknown integration ${id}`, 404);
+  return id;
+}
 
 function body<T>(value: unknown, check: (v: Record<string, unknown>) => T): T {
   if (!value || typeof value !== 'object') throw new BureauError('Expected a JSON object');
@@ -12,7 +18,11 @@ function body<T>(value: unknown, check: (v: Record<string, unknown>) => T): T {
  * The JSON API the web UI talks to. Every route is a thin call into Bureau,
  * and every route but health and sign-in needs a session when `auth` is set.
  */
-export function createApi(bureau: Bureau, auth: AuthConfig | null): Hono {
+export function createApi(
+  bureau: Bureau,
+  auth: AuthConfig | null,
+  integrations?: Integrations,
+): Hono {
   const api = new Hono();
   const guard = createAuth(auth);
 
@@ -88,12 +98,38 @@ export function createApi(bureau: Bureau, auth: AuthConfig | null): Hono {
 
   api.get('/changes', async (c) => c.json(await bureau.recentChanges()));
 
+  // Settings: connecting Ghost and Buffer from the app. Keys go in, never out.
+  if (integrations) {
+    const input = async (c: Context): Promise<IntegrationInput> => {
+      const id = integrationId(c.req.param('id') ?? '');
+      return body(await c.req.json().catch(() => null), (v) => ({ ...v, id }) as IntegrationInput);
+    };
+
+    api.get('/settings/integrations', async (c) => c.json(await integrations.status()));
+
+    api.put('/settings/integrations/:id', async (c) => {
+      return c.json(await integrations.save(await input(c)));
+    });
+
+    api.delete('/settings/integrations/:id', async (c) => {
+      return c.json(await integrations.clear(integrationId(c.req.param('id'))));
+    });
+
+    api.post('/settings/integrations/:id/test', async (c) => {
+      return c.json(await integrations.test(await input(c)));
+    });
+  }
+
   return api;
 }
 
 /** `auth` is required on purpose: running without a login has to be a decision. */
-export function createApp(bureau: Bureau, auth: AuthConfig | null): Hono {
+export function createApp(
+  bureau: Bureau,
+  auth: AuthConfig | null,
+  integrations?: Integrations,
+): Hono {
   const app = new Hono();
-  app.route('/api', createApi(bureau, auth));
+  app.route('/api', createApi(bureau, auth, integrations));
   return app;
 }

@@ -1,0 +1,62 @@
+name: Desktop release
+
+# Builds the desktop app for macOS and Windows when a version tag is pushed,
+# and uploads the installers and update metadata to that tag's GitHub Release.
+# The release is created as a draft: installed apps only see it, and update to
+# it, once it is published. See README, "Desktop app".
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            flag: --mac
+          - name: Windows
+            os: windows-latest
+            flag: --win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run build:desktop
+      - name: Package and publish
+        run: npx electron-builder ${{ matrix.flag }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS signing and notarisation. Without them the build is unsigned,
+          # which macOS refuses to update in place. See README.
+          CSC_LINK: ${{ matrix.name == 'macOS' && secrets.MAC_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.name == 'macOS' && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing, optional: unsigned installers work but SmartScreen
+          # warns on first run.
+          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}

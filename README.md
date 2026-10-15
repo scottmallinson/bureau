@@ -34,6 +34,8 @@ assistant analyse the same numbers.
   cross-platform story totals and a sortable per-post table with every metric.
 - **AI analysis.** A read-only MCP server exposes the analytics, the schedule
   and the relationships to any MCP client.
+- **Web or desktop.** Host it (on Vercel, say) or install it on macOS or
+  Windows, where it keeps itself up to date.
 
 Editing an item's content is deliberately out of scope: Bureau only adds,
 changes or removes publishing times.
@@ -60,8 +62,17 @@ npm start          # UI and API on http://localhost:8787
 
 ## Connecting Ghost and Buffer
 
-Copy `.env.example` to `.env`. Each integration is independent: configure one
-and the other stays on demo data.
+Open **Settings** in Bureau and enter each service's details; _Test connection_
+checks them before you save. Each integration is independent: connect one and
+the other stays on demo data. Keys are kept with Bureau's other state (in
+`data/settings.json`, in Redis, or in the desktop app's data folder, where
+they are encrypted with the system keychain) and are never sent back to the
+browser once saved.
+
+Environment variables do the same job and take precedence: an integration set
+in the environment shows as such in Settings and cannot be changed there,
+which suits a deployment you want pinned. To use them, copy `.env.example` to
+`.env`.
 
 | Variable                                         | What it is                                                                                            |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
@@ -141,6 +152,9 @@ the UI as static files and serves the API from one Vercel Function
    [Connecting Ghost and Buffer](#connecting-ghost-and-buffer), or leave them
    out to try it on demo data, then deploy.
 
+`vercel.json` skips downloading Electron during the install: the desktop app's
+build tools are development dependencies the web deployment never runs.
+
 A deployment is public, so until sign-in and a database are configured the API
 answers every request with 503 and the function logs say what is missing.
 
@@ -153,6 +167,58 @@ The same variables work anywhere: set them in `.env` and the local server and
 the MCP server use the Redis database instead of `data/`, which lets an
 assistant analyse the deployed Bureau's numbers from your machine. See
 [ADR 0004](docs/adr/0004-vercel-and-redis-storage.md) for the reasoning.
+
+## Desktop app
+
+Bureau also runs as a desktop app for macOS 12 or later and Windows 10 or
+later, built with [Electron](https://www.electronjs.org). The app runs the same
+server inside itself on a private loopback port and shows the UI in its own
+window, so it needs no sign-in, no `.env` and no terminal: connect Ghost and
+Buffer in Settings. Its data lives in the app's data folder
+(`~/Library/Application Support/Bureau` on macOS, `%APPDATA%\Bureau` on
+Windows).
+
+```sh
+npm run desktop       # build and open the app from source
+npm run dist:desktop  # build an installer for this platform into release/
+```
+
+### Updates
+
+The installed app checks
+[GitHub Releases](https://github.com/scottmallinson/bureau/releases) when it
+starts and every six hours, using
+[electron-updater](https://www.electron.build/auto-update). A newer version
+downloads in the background and installs when Bureau quits; _Settings >
+Updates_ shows its progress and can restart into it straight away or check
+again.
+
+To release a version:
+
+1. Bump `version` in `package.json` (`npm version minor`, say) and push the
+   commit and its `v1.2.3` tag.
+2. `.github/workflows/desktop.yml` builds the macOS (universal) and Windows
+   installers and uploads them, with the update metadata, to a draft release
+   for that tag.
+3. Publish the draft. Installed apps update from that moment.
+
+### Signing
+
+macOS installs updates only into a signed app, so updates on macOS need an
+Apple Developer ID certificate and notarisation. Add these repository secrets
+and the workflow uses them:
+
+| Secret                                                     | What it is                                                                               |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `MAC_CERTIFICATE`, `MAC_CERTIFICATE_PASSWORD`              | The _Developer ID Application_ certificate as base64 `.p12`, and its password            |
+| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | For notarisation                                                                         |
+| `WINDOWS_CERTIFICATE`, `WINDOWS_CERTIFICATE_PASSWORD`      | Optional. Unsigned Windows builds install and update, but SmartScreen warns on first run |
+
+Without the macOS secrets the build is unsigned: it opens after a right-click
+and _Open_, and has to be updated by downloading the new version by hand.
+
+The app is pinned to Electron 43, the last version that supports macOS 12.
+See [ADR 0005](docs/adr/0005-desktop-app.md).
 
 ## AI analysis over MCP
 
@@ -192,24 +258,29 @@ src/server/   Bureau service, Ghost/Buffer providers, mock providers, JSON API (
 api/          Vercel Function entry point over the compiled server
 src/mcp/      MCP server over the same Bureau service
 src/web/      React UI (Vite, dnd-kit)
+src/desktop/  Electron app: runs the server in-process, window, updates
 test/         Vitest suites for core, providers, service, API and MCP
 docs/adr/     Architecture decisions (see 0002 for the stack)
 ```
 
 The JSON API, for reference:
 
-| Method   | Path                          | Body                                              |
-| -------- | ----------------------------- | ------------------------------------------------- |
-| `GET`    | `/api/session`                | Whether sign-in is needed, providers, the user    |
-| `*`      | `/api/auth/*`                 | Better Auth: sign-in, OAuth callbacks, sign-out   |
-| `GET`    | `/api/overview`               | Channels, items, stories, suggestions             |
-| `PUT`    | `/api/items/:id/schedule`     | `{ "scheduledAt": iso \| null, "cascade": bool }` |
-| `POST`   | `/api/relationships`          | `{ "itemIds": [...] }`                            |
-| `DELETE` | `/api/relationships/:id`      | Removes a manual link or rejects a detected one   |
-| `PUT`    | `/api/channels/:id/followers` | `{ "followers": number \| null }`                 |
-| `GET`    | `/api/analytics`              | `?from=&to=&refresh=1`                            |
-| `GET`    | `/api/analytics/history`      | Snapshots                                         |
-| `GET`    | `/api/changes`                | Recent schedule changes                           |
+| Method   | Path                                  | Body                                                         |
+| -------- | ------------------------------------- | ------------------------------------------------------------ |
+| `GET`    | `/api/session`                        | Whether sign-in is needed, providers, the user               |
+| `*`      | `/api/auth/*`                         | Better Auth: sign-in, OAuth callbacks, sign-out              |
+| `GET`    | `/api/overview`                       | Channels, items, stories, suggestions                        |
+| `PUT`    | `/api/items/:id/schedule`             | `{ "scheduledAt": iso \| null, "cascade": bool }`            |
+| `POST`   | `/api/relationships`                  | `{ "itemIds": [...] }`                                       |
+| `DELETE` | `/api/relationships/:id`              | Removes a manual link or rejects a detected one              |
+| `PUT`    | `/api/channels/:id/followers`         | `{ "followers": number \| null }`                            |
+| `GET`    | `/api/analytics`                      | `?from=&to=&refresh=1`                                       |
+| `GET`    | `/api/analytics/history`              | Snapshots                                                    |
+| `GET`    | `/api/changes`                        | Recent schedule changes                                      |
+| `GET`    | `/api/settings/integrations`          | Where Ghost and Buffer are configured; no keys               |
+| `PUT`    | `/api/settings/integrations/:id`      | Connect `ghost` or `buffer`; a blank key keeps the saved one |
+| `DELETE` | `/api/settings/integrations/:id`      | Disconnect, back to demo data                                |
+| `POST`   | `/api/settings/integrations/:id/test` | Check details without saving                                 |
 
 ## Everyday commands
 
@@ -218,6 +289,7 @@ npm run dev           # API and UI with reload
 npm test              # unit and integration tests
 npm run typecheck     # server, tests and UI
 npm run build         # UI to dist/web, server to dist/
+npm run desktop       # desktop app from source
 npm run format        # Prettier
 npm run lint:commits  # commitlint since origin/main
 ```
