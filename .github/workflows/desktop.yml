@@ -54,20 +54,35 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx false; then
             echo "EP_PRE_RELEASE=true" >> "$GITHUB_ENV"
           fi
+      - name: Use signing certificates when configured
+        # electron-builder reads an empty CSC_LINK as a path to the checkout
+        # and fails, so only set the variables that have a value.
+        shell: bash
+        env:
+          MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set_env() { if [ -n "$2" ]; then echo "$1=$2" >> "$GITHUB_ENV"; fi; }
+          if [ "$RUNNER_OS" = macOS ]; then
+            set_env CSC_LINK "$MAC_CERTIFICATE"
+            set_env CSC_KEY_PASSWORD "$MAC_CERTIFICATE_PASSWORD"
+            set_env APPLE_ID "$APPLE_ID"
+            set_env APPLE_APP_SPECIFIC_PASSWORD "$APPLE_APP_SPECIFIC_PASSWORD"
+            set_env APPLE_TEAM_ID "$APPLE_TEAM_ID"
+            # Without a certificate, build unsigned rather than look for one.
+            if [ -z "$MAC_CERTIFICATE" ]; then set_env CSC_IDENTITY_AUTO_DISCOVERY false; fi
+          else
+            set_env WIN_CSC_LINK "$WINDOWS_CERTIFICATE"
+            set_env WIN_CSC_KEY_PASSWORD "$WINDOWS_CERTIFICATE_PASSWORD"
+          fi
       - run: npm ci
       - run: npm run build:desktop
       - name: Package and publish
         run: npx electron-builder ${{ matrix.flag }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing and notarisation. Without them the build is unsigned,
-          # which macOS refuses to update in place. See README.
-          CSC_LINK: ${{ matrix.name == 'macOS' && secrets.MAC_CERTIFICATE || '' }}
-          CSC_KEY_PASSWORD: ${{ matrix.name == 'macOS' && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows signing, optional: unsigned installers work but SmartScreen
-          # warns on first run.
-          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
