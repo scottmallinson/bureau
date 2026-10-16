@@ -6,12 +6,14 @@ import { authClient } from './auth.js';
 import { BureauProvider, useBureau } from './state.js';
 import { AnalyticsView } from './views/AnalyticsView.js';
 import { ScheduleView } from './views/ScheduleView.js';
+import { SettingsView } from './views/SettingsView.js';
 import { StoriesView } from './views/StoriesView.js';
 
 const TABS = [
   { id: 'schedule', label: 'Schedule' },
   { id: 'stories', label: 'Stories' },
   { id: 'analytics', label: 'Analytics' },
+  { id: 'settings', label: 'Settings' },
 ] as const;
 
 type Tab = (typeof TABS)[number]['id'];
@@ -71,7 +73,9 @@ function Shell({ onSignOut }: { onSignOut: (() => void) | undefined }) {
               className={`source-badge ${p.error ? 'error' : p.mode}`}
               title={
                 p.error ??
-                (p.mode === 'mock' ? 'No credentials configured: showing demo data' : 'Connected')
+                (p.mode === 'mock'
+                  ? 'Not connected: showing demo data. Connect it in Settings.'
+                  : 'Connected')
               }
             >
               {p.error && <Icon name="warn" />}
@@ -115,8 +119,10 @@ function Shell({ onSignOut }: { onSignOut: (() => void) | undefined }) {
           <ScheduleView />
         ) : tab === 'stories' ? (
           <StoriesView />
-        ) : (
+        ) : tab === 'analytics' ? (
           <AnalyticsView />
+        ) : (
+          <SettingsView />
         )}
       </main>
       <Toasts />

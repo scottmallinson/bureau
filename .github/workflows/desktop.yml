@@ -1,0 +1,88 @@
+name: Desktop release
+
+# Builds the desktop app for macOS and Windows when a version tag is pushed,
+# and uploads the installers and update metadata to that tag's GitHub Release.
+# The release is created as a draft: installed apps only see it, and update to
+# it, once it is published. See README, "Desktop app".
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            flag: --mac
+          - name: Windows
+            os: windows-latest
+            flag: --win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - name: Upload into a release published by hand
+        # A release published on GitHub (which also creates the tag) already
+        # exists, and electron-builder only uploads into an existing published
+        # release when it is not publishing a draft.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx false; then
+            echo "EP_PRE_RELEASE=true" >> "$GITHUB_ENV"
+          fi
+      - name: Use signing certificates when configured
+        # electron-builder reads an empty CSC_LINK as a path to the checkout
+        # and fails, so only set the variables that have a value.
+        shell: bash
+        env:
+          MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set_env() { if [ -n "$2" ]; then echo "$1=$2" >> "$GITHUB_ENV"; fi; }
+          if [ "$RUNNER_OS" = macOS ]; then
+            set_env CSC_LINK "$MAC_CERTIFICATE"
+            set_env CSC_KEY_PASSWORD "$MAC_CERTIFICATE_PASSWORD"
+            set_env APPLE_ID "$APPLE_ID"
+            set_env APPLE_APP_SPECIFIC_PASSWORD "$APPLE_APP_SPECIFIC_PASSWORD"
+            set_env APPLE_TEAM_ID "$APPLE_TEAM_ID"
+            # Without a certificate, build unsigned rather than look for one.
+            if [ -z "$MAC_CERTIFICATE" ]; then set_env CSC_IDENTITY_AUTO_DISCOVERY false; fi
+          else
+            set_env WIN_CSC_LINK "$WINDOWS_CERTIFICATE"
+            set_env WIN_CSC_KEY_PASSWORD "$WINDOWS_CERTIFICATE_PASSWORD"
+          fi
+      - run: npm ci
+      - run: npm run build:desktop
+      - name: Package and publish
+        run: npx electron-builder ${{ matrix.flag }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

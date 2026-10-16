@@ -1,0 +1,182 @@
+import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
+import electronUpdater from 'electron-updater';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadConfig } from '../server/config.js';
+import type { SecretBox } from '../server/integrations.js';
+import { serveBureau } from '../server/node.js';
+import type { UpdateState } from '../core/updates.js';
+import { UPDATE_CHANNELS } from './updates.js';
+
+// electron-updater is CommonJS; this is its documented ESM import.
+const { autoUpdater } = electronUpdater;
+
+const here = fileURLToPath(new URL('.', import.meta.url));
+const CHECK_EVERY_MS = 6 * 60 * 60_000;
+const SEALED = 'safe:';
+
+/**
+ * Keys saved in Settings are encrypted with the operating system's keychain
+ * (Keychain on macOS, DPAPI on Windows) through Electron's safeStorage, so the
+ * data folder on its own does not give them away.
+ */
+const secrets: SecretBox = {
+  seal(plain) {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('This computer has no keychain Bureau can use to protect API keys');
+    }
+    return SEALED + safeStorage.encryptString(plain).toString('base64');
+  },
+  open(sealed) {
+    if (!sealed.startsWith(SEALED)) return sealed;
+    return safeStorage.decryptString(Buffer.from(sealed.slice(SEALED.length), 'base64'));
+  },
+};
+
+let window: BrowserWindow | undefined;
+let origin = '';
+
+let updateState: UpdateState = { status: 'idle', version: app.getVersion() };
+
+function setUpdateState(next: UpdateState): void {
+  updateState = next;
+  window?.webContents.send(UPDATE_CHANNELS.changed, next);
+}
+
+/**
+ * Updates come from the repository's GitHub Releases (the `publish` block in
+ * electron-builder.yml, baked into the installed app). A new version
+ * downloads in the background and installs on the next quit, or straight away
+ * from Settings.
+ */
+function setUpUpdates(): void {
+  const version = app.getVersion();
+  if (!app.isPackaged) {
+    updateState = {
+      status: 'unsupported',
+      version,
+      reason: 'Updates work in the installed app, not when run from source.',
+    };
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', version }));
+  autoUpdater.on('update-not-available', () =>
+    setUpdateState({ status: 'current', version, checkedAt: new Date().toISOString() }),
+  );
+  autoUpdater.on('update-available', (info) =>
+    setUpdateState({ status: 'downloading', version, next: info.version, percent: 0 }),
+  );
+  autoUpdater.on('download-progress', (progress) => {
+    if (updateState.status === 'downloading') {
+      setUpdateState({ ...updateState, percent: Math.round(progress.percent) });
+    }
+  });
+  autoUpdater.on('update-downloaded', (info) =>
+    setUpdateState({ status: 'ready', version, next: info.version }),
+  );
+  autoUpdater.on('error', (error) =>
+    setUpdateState({ status: 'error', version, message: error.message }),
+  );
+
+  const check = () => void autoUpdater.checkForUpdates().catch(() => undefined);
+  check();
+  setInterval(check, CHECK_EVERY_MS).unref();
+}
+
+function registerIpc(): void {
+  ipcMain.handle(UPDATE_CHANNELS.state, () => updateState);
+  ipcMain.handle(UPDATE_CHANNELS.check, async () => {
+    if (updateState.status !== 'unsupported' && updateState.status !== 'downloading') {
+      await autoUpdater.checkForUpdates().catch(() => undefined);
+    }
+    return updateState;
+  });
+  ipcMain.handle(UPDATE_CHANNELS.install, () => {
+    if (updateState.status === 'ready') autoUpdater.quitAndInstall();
+  });
+}
+
+function createWindow(): void {
+  window = new BrowserWindow({
+    width: 1360,
+    height: 880,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'Bureau',
+    show: false,
+    webPreferences: {
+      preload: join(here, 'preload.cjs'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // Bureau's own pages stay in the window; links to posts and services open in
+  // the default browser.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  window.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith(origin)) {
+      event.preventDefault();
+      if (/^https?:\/\//.test(url)) void shell.openExternal(url);
+    }
+  });
+
+  window.once('ready-to-show', () => window?.show());
+  window.on('closed', () => {
+    window = undefined;
+  });
+  void window.loadURL(`${origin}/`);
+}
+
+async function start(): Promise<void> {
+  // The API runs inside the app on a loopback port of its own. There is no
+  // sign-in: like `npm start` without one, nothing beyond this machine can
+  // reach it.
+  const config = loadConfig({
+    ...process.env,
+    HOST: '127.0.0.1',
+    PORT: '0',
+    BUREAU_DATA_DIR: join(app.getPath('userData'), 'data'),
+  });
+  delete config.auth;
+
+  const server = await serveBureau(config, {
+    webRoot: join(here, '..', 'web'),
+    secrets,
+    loopbackHostOnly: true,
+  });
+  origin = `http://127.0.0.1:${server.port}`;
+  app.on('will-quit', () => void server.close());
+
+  registerIpc();
+  setUpUpdates();
+  createWindow();
+}
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (window?.isMinimized()) window.restore();
+    window?.focus();
+  });
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+  app.on('activate', () => {
+    if (!window && origin) createWindow();
+  });
+  app
+    .whenReady()
+    .then(start)
+    .catch((error: unknown) => {
+      console.error(error);
+      app.exit(1);
+    });
+}

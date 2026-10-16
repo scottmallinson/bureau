@@ -1306,3 +1306,66 @@ button.small {
     max-height: none;
   }
 }
+
+/* Settings */
+
+.settings {
+  max-width: 720px;
+  padding: 16px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-intro {
+  margin: 0;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.settings-head h2 {
+  margin: 0;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-label {
+  font-weight: 600;
+}
+
+.field input {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.field-hint a {
+  color: var(--accent);
+}
+
+.ok-text {
+  color: var(--ok);
+  margin: 0;
+}
+
+.settings .error-text {
+  color: var(--danger);
+  margin: 0;
+}

@@ -7,8 +7,9 @@ files such as `CLAUDE.md` point here so there is a single source of truth.
 
 Bureau is a web app for managing publishing schedules across Ghost and Buffer:
 a drag-and-drop calendar, relationships between items on different platforms,
-analytics, and a read-only MCP server for AI analysis. TypeScript on Node 22.9+,
-React + Vite for the UI, Hono for the API. See `README.md` and
+analytics, and a read-only MCP server for AI analysis, on the web or as a
+desktop app. TypeScript on Node 22.9+, React + Vite for the UI, Hono for the
+API, Electron for the desktop app. See `README.md` and
 `docs/adr/0002-stack-and-architecture.md`.
 
 - Domain logic lives in `src/core/` and is shared by the API, the UI and the
@@ -16,6 +17,10 @@ React + Vite for the UI, Hono for the API. See `README.md` and
 - Services are reached only through the `Provider` interface in
   `src/server/providers/types.ts`. Bureau changes publishing times and nothing
   else: do not add content editing without an ADR.
+- Ghost and Buffer are configured in Settings (`src/server/integrations.ts`)
+  or by environment variables, which win. The desktop app (`src/desktop/`)
+  runs the same server in-process; keep Electron on 43.x while macOS 12 is
+  supported (ADR 0005).
 - Without credentials the app runs on mock providers
   (`src/server/providers/mock*.ts`) that replay real API payload shapes; keep
   them in step with the live clients.
@@ -32,6 +37,7 @@ React + Vite for the UI, Hono for the API. See `README.md` and
 | Typecheck        | `npm run typecheck`    |
 | Build            | `npm run build`        |
 | MCP server       | `npm run mcp`          |
+| Desktop app      | `npm run desktop`      |
 | Format           | `npm run format`       |
 | Check formatting | `npm run format:check` |
 | Lint commits     | `npm run lint:commits` |

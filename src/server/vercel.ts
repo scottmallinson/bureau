@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
-import { createBureau } from './setup.js';
+import { createServices } from './setup.js';
 
 /** Answers every request with 503 and leaves the reason in the function logs. */
 function unavailable(reason: string): Hono {
@@ -28,5 +28,6 @@ export function createVercelApp(env: NodeJS.ProcessEnv = process.env): Hono {
   if (!config.auth) {
     return unavailable('no sign-in provider is configured, and a deployment is public');
   }
-  return createApp(createBureau(config), config.auth);
+  const { bureau, integrations } = createServices(config);
+  return createApp(bureau, config.auth, integrations);
 }

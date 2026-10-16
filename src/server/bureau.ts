@@ -56,6 +56,14 @@ export class BureauError extends Error {
   }
 }
 
+/**
+ * Where Bureau gets its providers. A fixed list, or a function for when they
+ * can change while it runs, as they do when someone connects Ghost or Buffer
+ * in Settings. A function should return the same array until something
+ * changes: a new array is what tells Bureau to drop what it cached.
+ */
+export type ProviderSource = Provider[] | (() => Promise<Provider[]>);
+
 const ITEMS_TTL_MS = 30_000;
 const METRICS_TTL_MS = 5 * 60_000;
 const SNAPSHOT_EVERY_MS = 60 * 60_000;
@@ -72,9 +80,10 @@ export class Bureau {
   private readonly store: Store<BureauState>;
   private itemsCache: { at: number; value: Omit<Overview, 'stories' | 'suggestions'> } | undefined;
   private metricsCache: { at: number; metrics: ItemMetrics[]; stats: ChannelStats[] } | undefined;
+  private current: Provider[] | undefined;
 
   constructor(
-    private readonly providers: Provider[],
+    private readonly source: ProviderSource,
     storage: Storage,
     private readonly options: { historyDays?: number; now?: () => Date } = {},
   ) {
@@ -85,8 +94,19 @@ export class Bureau {
     return this.options.now?.() ?? new Date();
   }
 
-  private provider(id: ProviderId): Provider {
-    const provider = this.providers.find((p) => p.id === id);
+  /** The providers in use, dropping caches when they have changed. */
+  private async providers(): Promise<Provider[]> {
+    const providers = Array.isArray(this.source) ? this.source : await this.source();
+    if (providers !== this.current) {
+      this.current = providers;
+      this.itemsCache = undefined;
+      this.metricsCache = undefined;
+    }
+    return providers;
+  }
+
+  private async provider(id: ProviderId): Promise<Provider> {
+    const provider = (await this.providers()).find((p) => p.id === id);
     if (!provider) throw new BureauError(`No ${id} provider configured`, 404);
     return provider;
   }
@@ -96,12 +116,14 @@ export class Bureau {
   }
 
   private async load(): Promise<Omit<Overview, 'stories' | 'suggestions'>> {
+    // Providers first: a change of provider empties the cache.
+    const providers = await this.providers();
     if (this.itemsCache && Date.now() - this.itemsCache.at < ITEMS_TTL_MS) {
       return this.itemsCache.value;
     }
     const since = new Date(this.now().getTime() - (this.options.historyDays ?? 90) * 86_400_000);
     const results = await Promise.all(
-      this.providers.map(async (provider) => {
+      providers.map(async (provider) => {
         try {
           const [channels, items] = await Promise.all([
             provider.listChannels(),
@@ -185,7 +207,7 @@ export class Bureau {
 
     const result: RescheduleResult = { changes: [], skipped: [] };
     const apply = async (subject: QueueItem, to: string | null) => {
-      const updated = await this.provider(subject.provider).setSchedule(subject.id, to);
+      const updated = await (await this.provider(subject.provider)).setSchedule(subject.id, to);
       const change: ScheduleChange = { itemId: subject.id };
       if (subject.scheduledAt) change.from = subject.scheduledAt;
       if (updated.scheduledAt) change.to = updated.scheduledAt;
@@ -296,12 +318,13 @@ export class Bureau {
     refresh: boolean,
   ): Promise<{ metrics: ItemMetrics[]; stats: ChannelStats[] }> {
     const { items, channels } = await this.load();
+    const providers = await this.providers();
     await this.seedDemoFollowers();
     const state = await this.store.read();
 
     if (refresh || !this.metricsCache || Date.now() - this.metricsCache.at > METRICS_TTL_MS) {
       const fetched = await Promise.all(
-        this.providers.map(async (provider) => {
+        providers.map(async (provider) => {
           const own = channels.filter((c) => c.provider === provider.id);
           const [metrics, stats] = await Promise.all([
             provider.fetchMetrics(items.filter((i) => i.provider === provider.id)).catch(() => []),
@@ -349,7 +372,7 @@ export class Bureau {
   }
 
   private async seedDemoFollowers(): Promise<void> {
-    const mock = this.providers.find(
+    const mock = (await this.providers()).find(
       (p): p is MockBufferProvider => p instanceof MockBufferProvider,
     );
     if (!mock) return;
