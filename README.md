@@ -193,14 +193,24 @@ downloads in the background and installs when Bureau quits; _Settings >
 Updates_ shows its progress and can restart into it straight away or check
 again.
 
-To release a version:
+Releases are automatic. Every merge to `main` that carries a releasable
+[Conventional Commit](https://www.conventionalcommits.org/) cuts a version
+through `.github/workflows/desktop.yml`:
 
-1. Bump `version` in `package.json` (`npm version minor`, say) and push the
-   commit and its `v1.2.3` tag.
-2. `.github/workflows/desktop.yml` builds the macOS (universal) and Windows
-   installers and uploads them, with the update metadata, to a draft release
-   for that tag.
-3. Publish the draft. Installed apps update from that moment.
+1. [semantic-release](https://semantic-release.gitbook.io) picks the next
+   version from the commits since the last tag (`fix` and `perf` bump the
+   patch, `feat` the minor, a breaking change the major), tags it and opens a
+   draft release with the notes. `chore`, `docs`, `ci` and the like release
+   nothing.
+2. The macOS (universal) and Windows installers are built at that version and
+   uploaded, with the update metadata, into the draft.
+3. Once both are in, the draft is published, and installed apps update from
+   that moment. If either build fails, the release stays a draft and nothing
+   updates.
+
+The version lives in the tags, so `version` in `package.json` is not bumped.
+Pull requests build both installers without publishing, so a build that
+would break a release fails on the pull request first.
 
 ### Signing
 
