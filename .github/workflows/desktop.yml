@@ -119,10 +119,16 @@ jobs:
       - run: npm run build:desktop
       - name: Package
         if: github.event_name == 'pull_request'
-        run: npx electron-builder ${{ matrix.flag }} --publish never
+        # Passes a version the same way a release does, so this proves it.
+        shell: bash
+        run: >-
+          npx electron-builder ${{ matrix.flag }} --publish never
+          -c.extraMetadata.version=0.0.0-pr.${{ github.event.number }}
       - name: Package and upload to the draft
         if: github.event_name != 'pull_request'
         # The version comes from the tag, so package.json never needs a bump.
+        # Bash, because PowerShell splits -c.extraMetadata.version at the dot.
+        shell: bash
         run: >-
           npx electron-builder ${{ matrix.flag }} --publish always
           -c.extraMetadata.version=${{ needs.release.outputs.version }}
