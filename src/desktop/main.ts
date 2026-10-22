@@ -76,9 +76,16 @@ function setUpUpdates(): void {
   autoUpdater.on('update-downloaded', (info) =>
     setUpdateState({ status: 'ready', version, next: info.version }),
   );
-  autoUpdater.on('error', (error) =>
-    setUpdateState({ status: 'error', version, message: error.message }),
-  );
+  autoUpdater.on('error', (error) => {
+    // The full error, with the response headers GitHub sends back, is for the log.
+    // Settings only gets a plain message.
+    console.error('Update check failed:', error);
+    setUpdateState({
+      status: 'error',
+      version,
+      message: 'Bureau could not reach its update server. It will try again later.',
+    });
+  });
 
   const check = () => void autoUpdater.checkForUpdates().catch(() => undefined);
   check();
