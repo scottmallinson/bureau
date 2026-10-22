@@ -30,11 +30,15 @@ We will pin Electron to **43.x**, the last line that runs on macOS 12:
 Electron 44 requires macOS 13.
 
 We will update through **electron-updater** with **GitHub Releases** as the
-feed. A tag push runs `.github/workflows/desktop.yml`, which builds a
-universal macOS app (dmg, plus the zip updates install from) and a Windows
-NSIS installer with electron-builder and attaches them, with the
-`latest*.yml` metadata, to a draft release. Publishing the draft releases it
-to installed apps, which check at launch and every six hours, download in the
+feed. Each merge to `main` with a releasable Conventional Commit runs
+`.github/workflows/desktop.yml`: semantic-release tags the next version and
+opens a draft release, electron-builder builds a universal macOS app (dmg,
+plus the zip updates install from) and a Windows NSIS installer at that
+version and attaches them, with the `latest*.yml` metadata, to the draft, and
+the draft is published once both builds succeed. The version comes from the
+tags, not `package.json`, so nobody has to bump it by hand (a hand-pushed tag
+that did not match `package.json` was what broke the first automated
+release). Publishing releases it to installed apps, which check at launch and every six hours, download in the
 background and install on quit or on request from Settings.
 
 We will make integrations configurable at run time through an

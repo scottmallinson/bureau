@@ -1,23 +1,73 @@
 name: Desktop release
 
-# Builds the desktop app for macOS and Windows when a version tag is pushed,
-# and uploads the installers and update metadata to that tag's GitHub Release.
-# The release is created as a draft: installed apps only see it, and update to
-# it, once it is published. See README, "Desktop app".
+# Every push to main that carries a releasable Conventional Commit (feat, fix,
+# perf, or a breaking change) releases the desktop app:
+#
+# 1. semantic-release works out the next version from the commits since the
+#    last tag, tags it and opens a draft GitHub Release with the notes.
+# 2. macOS (universal) and Windows are built at that version and uploaded,
+#    with the update metadata, into the draft.
+# 3. Once both builds are in, the draft is published, and installed apps
+#    update to it.
+#
+# Pull requests build both platforms without publishing, so a broken build
+# shows before it merges. See README, "Desktop app".
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
   group: desktop-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  release:
+    name: Version
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      - name: Tag and draft the release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read the new version
+        id: version
+        shell: bash
+        run: |
+          tag="$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n 1)"
+          if [ -n "$tag" ]; then
+            echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+            echo "Releasing $tag"
+          else
+            echo "Nothing to release"
+          fi
+
   build:
     name: ${{ matrix.name }}
+    needs: release
+    # Runs on pull requests (release is skipped there) and when a version was cut.
+    if: >-
+      always() &&
+      (github.event_name == 'pull_request' ||
+       (needs.release.result == 'success' && needs.release.outputs.version != ''))
     strategy:
       fail-fast: false
       matrix:
@@ -35,28 +85,11 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Check the tag matches package.json
-        shell: bash
-        run: |
-          version="v$(node -p "require('./package.json').version")"
-          if [ "$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
-            exit 1
-          fi
-      - name: Upload into a release published by hand
-        # A release published on GitHub (which also creates the tag) already
-        # exists, and electron-builder only uploads into an existing published
-        # release when it is not publishing a draft.
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx false; then
-            echo "EP_PRE_RELEASE=true" >> "$GITHUB_ENV"
-          fi
       - name: Use signing certificates when configured
         # electron-builder reads an empty CSC_LINK as a path to the checkout
-        # and fails, so only set the variables that have a value.
+        # and fails, so only set the variables that have a value. Pull requests
+        # never sign.
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
@@ -74,15 +107,40 @@ jobs:
             set_env APPLE_ID "$APPLE_ID"
             set_env APPLE_APP_SPECIFIC_PASSWORD "$APPLE_APP_SPECIFIC_PASSWORD"
             set_env APPLE_TEAM_ID "$APPLE_TEAM_ID"
-            # Without a certificate, build unsigned rather than look for one.
-            if [ -z "$MAC_CERTIFICATE" ]; then set_env CSC_IDENTITY_AUTO_DISCOVERY false; fi
           else
             set_env WIN_CSC_LINK "$WINDOWS_CERTIFICATE"
             set_env WIN_CSC_KEY_PASSWORD "$WINDOWS_CERTIFICATE_PASSWORD"
           fi
+      - name: Build unsigned without a macOS certificate
+        if: runner.os == 'macOS' && env.CSC_LINK == ''
+        shell: bash
+        run: echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run build:desktop
-      - name: Package and publish
-        run: npx electron-builder ${{ matrix.flag }} --publish always
+      - name: Package
+        if: github.event_name == 'pull_request'
+        run: npx electron-builder ${{ matrix.flag }} --publish never
+      - name: Package and upload to the draft
+        if: github.event_name != 'pull_request'
+        # The version comes from the tag, so package.json never needs a bump.
+        run: >-
+          npx electron-builder ${{ matrix.flag }} --publish always
+          -c.extraMetadata.version=${{ needs.release.outputs.version }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publish
+    needs: [release, build]
+    if: needs.release.outputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.release.outputs.version }}
+        run: |
+          id="$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$TAG\" and .draft) | .id" | head -n 1)"
+          if [ -z "$id" ]; then echo "::error::No draft release for $TAG"; exit 1; fi
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -F draft=false -f make_latest=true
