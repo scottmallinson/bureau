@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, SIGNED_OUT, type Session } from './api.js';
-import { Icon, Toasts } from './components/common.js';
+import { Icon, Toasts, Wordmark } from './components/common.js';
 import { SignIn } from './components/SignIn.js';
 import { authClient } from './auth.js';
 import { BureauProvider, useBureau } from './state.js';
@@ -40,7 +40,7 @@ function Shell({ onSignOut }: { onSignOut: (() => void) | undefined }) {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo" aria-hidden />
+          <Wordmark />
           Bureau
         </div>
         <nav className="tabs" aria-label="Sections">

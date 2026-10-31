@@ -2,13 +2,45 @@ import type { ItemStatus, Platform } from '../../core/types.js';
 import { PLATFORMS } from '../../core/platforms.js';
 import { useBureau } from '../state.js';
 
+/** Ghost carries the articles; every other platform carries posts about them. */
+export function isArticle(platform: Platform): boolean {
+  return platform === 'ghost';
+}
+
 export function PlatformDot({ platform }: { platform: Platform }) {
   return (
     <span
-      className="dot"
+      className={isArticle(platform) ? 'dot article' : 'dot'}
       style={{ background: `var(--series-${PLATFORMS[platform].slot})` }}
       aria-hidden
     />
+  );
+}
+
+/** The Bureau mark: two offset bars crossed by the shared time axis. */
+export function Wordmark({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={(size * 22) / 30}
+      height={size}
+      viewBox="0 0 22 30"
+      fill="none"
+      aria-hidden
+      focusable="false"
+    >
+      <rect
+        x="1.1"
+        y="4.1"
+        width="19.8"
+        height="21.8"
+        rx="4.5"
+        stroke="currentColor"
+        strokeWidth="2.2"
+      />
+      <rect x="10.25" y="0" width="1.5" height="30" rx="0.75" fill="currentColor" opacity="0.5" />
+      <rect x="4.4" y="8.8" width="7.4" height="3" rx="1.5" fill="currentColor" />
+      <rect x="10.2" y="18.2" width="7.4" height="3" rx="1.5" fill="currentColor" />
+    </svg>
   );
 }
 

@@ -13,9 +13,10 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { PLATFORMS } from '../../core/platforms.js';
 import type { Platform, QueueItem } from '../../core/types.js';
-import { Icon, PlatformBadge, PlatformDot, StatusPill } from '../components/common.js';
+import { Icon, isArticle, PlatformBadge, PlatformDot, StatusPill } from '../components/common.js';
 import { ItemPanel } from '../components/ItemPanel.js';
 import {
   addDays,
@@ -343,10 +344,17 @@ function Chip({
       className={[
         'chip',
         `chip-${item.status}`,
+        isArticle(item.platform) ? 'chip-article' : 'chip-post',
         highlighted.has(item.id) ? 'highlight' : '',
         isDragging ? 'dragging' : '',
         item.reschedulable ? 'movable' : '',
       ].join(' ')}
+      style={
+        {
+          '--chip-ink': `var(--series-${PLATFORMS[item.platform].slot})`,
+          '--chip-soft': `var(--series-${PLATFORMS[item.platform].slot}-soft)`,
+        } as CSSProperties
+      }
       onClick={() => onSelect(item.id)}
       onMouseEnter={() => onHover(item.id)}
       onMouseLeave={() => onHover(undefined)}

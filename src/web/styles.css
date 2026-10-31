@@ -1,72 +1,67 @@
-:root {
-  color-scheme: light;
-  --bg: #f6f5f2;
-  --surface: #fcfcfb;
-  --surface-2: #f0efec;
-  --border: #e2e0da;
-  --border-strong: #cbc8bf;
-  --text: #0b0b0b;
-  --text-2: #52514e;
-  --text-3: #7a7973;
-  --accent: #2a78d6;
-  --accent-ink: #ffffff;
-  --accent-soft: #e5effb;
-  --warn: #9a5b00;
-  --warn-soft: #fdf1d8;
-  --danger: #b42318;
-  --danger-soft: #fde7e5;
-  --ok-soft: #e3f4ec;
-  --ok: #146c43;
-  --focus: #2a78d6;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06);
+@import './tokens.css';
 
-  /* Categorical slots from the reference palette, in fixed order. */
-  --series-0: #9a9890;
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-7: #4a3aa7;
-  --series-8: #e34948;
-  --bar: #2a78d6;
+/*
+ * Bureau's interface runs on the design system's tokens. The names below are
+ * this app's own vocabulary, aliased onto those tokens, so one change in the
+ * system moves the whole app. Add no colour here that the system does not have.
+ */
 
-  --radius: 8px;
-  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+/* Self-hosted so the app owes nothing to a CDN and works offline. Both are
+   variable fonts: one file covers every weight the system uses. */
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('./fonts/hanken-grotesk-latin.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
-    --bg: #121211;
-    --surface: #1a1a19;
-    --surface-2: #232321;
-    --border: #2f2f2c;
-    --border-strong: #45453f;
-    --text: #ffffff;
-    --text-2: #c3c2b7;
-    --text-3: #918f86;
-    --accent: #3987e5;
-    --accent-soft: #1b2c42;
-    --warn: #f0b44c;
-    --warn-soft: #3a2d12;
-    --danger: #ff8a80;
-    --danger-soft: #3d1c19;
-    --ok-soft: #133024;
-    --ok: #6fd3a0;
-    --focus: #6da7ec;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.4);
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --series-7: #9085e9;
-    --series-8: #e66767;
-    --bar: #3987e5;
-  }
+@font-face {
+  font-family: 'Azeret Mono';
+  src: url('./fonts/azeret-mono-latin.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: var(--surface-page);
+  --surface: var(--surface-card);
+  --surface-2: var(--surface-sunken);
+  --surface-raised: var(--surface-raised);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --text: var(--ink);
+  --text-2: var(--ink-muted);
+  --text-3: var(--ink-faint);
+  --accent-ink: var(--on-accent);
+  --focus: var(--focus-ring);
+  --shadow: var(--shadow-panel);
+  --radius: var(--radius-md);
+  --radius-card: var(--radius-lg);
+  --font: var(--font-sans);
+  --font-data: var(--font-mono);
+
+  /* Platform colour follows the slot the product assigns, never the rank. */
+  --series-0: var(--cat-0);
+  --series-1: var(--cat-1);
+  --series-2: var(--cat-2);
+  --series-3: var(--cat-3);
+  --series-4: var(--cat-4);
+  --series-5: var(--cat-5);
+  --series-6: var(--cat-6);
+  --series-7: var(--cat-7);
+  --series-8: var(--cat-8);
+  --series-0-soft: var(--cat-0-soft);
+  --series-1-soft: var(--cat-1-soft);
+  --series-2-soft: var(--cat-2-soft);
+  --series-3-soft: var(--cat-3-soft);
+  --series-4-soft: var(--cat-4-soft);
+  --series-5-soft: var(--cat-5-soft);
+  --series-6-soft: var(--cat-6-soft);
+  --series-7-soft: var(--cat-7-soft);
+  --series-8-soft: var(--cat-8-soft);
+  --bar: var(--accent);
 }
 
 * {
@@ -83,8 +78,36 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 var(--font);
+  font: 400 15px/23px var(--font);
   -webkit-font-smoothing: antialiased;
+  /* Bureau is a table of numbers as much as it is a calendar. */
+  font-variant-numeric: tabular-nums;
+  caret-color: var(--accent);
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
 }
 
 button,
@@ -101,8 +124,9 @@ input[type='number'],
 input[type='datetime-local'] {
   border: 1px solid var(--border-strong);
   background: var(--surface);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 5px 10px;
+  min-height: var(--size-control-md);
 }
 
 button {
@@ -114,7 +138,9 @@ button:hover:not(:disabled) {
 }
 
 button:disabled {
-  opacity: 0.5;
+  color: var(--text-3);
+  border-color: var(--border);
+  background: transparent;
   cursor: default;
 }
 
@@ -125,8 +151,8 @@ button.primary {
 }
 
 button.primary:hover:not(:disabled) {
-  background: var(--accent);
-  filter: brightness(1.08);
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 :focus-visible {
@@ -135,7 +161,8 @@ button.primary:hover:not(:disabled) {
 }
 
 .small {
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .muted {
@@ -217,20 +244,30 @@ button.primary:hover:not(:disabled) {
   flex: none;
 }
 
+/* In the desktop window the title bar is hidden, so the top bar is the drag
+   handle and leaves room for the traffic lights. Controls stay clickable. */
+[data-desktop] .topbar {
+  -webkit-app-region: drag;
+}
+
+[data-desktop] .topbar a,
+[data-desktop] .topbar button,
+[data-desktop] .topbar select,
+[data-desktop] .topbar input {
+  -webkit-app-region: no-drag;
+}
+
+[data-desktop='darwin'] .topbar {
+  padding-left: 88px;
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 650;
-  font-size: 16px;
-}
-
-.logo {
-  width: 18px;
-  height: 16px;
-  border-radius: 4px;
-  background: var(--accent);
-  box-shadow: inset 0 -5px 0 -2px rgb(255 255 255 / 0.85);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.03em;
 }
 
 .tabs {
@@ -256,7 +293,7 @@ button.primary:hover:not(:disabled) {
 }
 
 .badge {
-  font-size: 11px;
+  font-size: 12px;
   min-width: 18px;
   padding: 0 5px;
   border-radius: 9px;
@@ -424,6 +461,13 @@ main {
   flex: none;
 }
 
+/* An article is the thing being published; a post points at it. The two
+   queues differ in form as well as colour, so the distinction survives
+   greyscale and colour-blind sight. */
+.dot.article {
+  border-radius: 2px;
+}
+
 .dots {
   display: inline-flex;
   gap: 4px;
@@ -436,7 +480,7 @@ main {
 }
 
 .pill {
-  font-size: 11px;
+  font-size: 12px;
   padding: 1px 7px;
   border-radius: 9px;
   background: var(--surface-2);
@@ -487,14 +531,14 @@ main {
   overflow: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   min-height: 0;
 }
 
 .week-grid {
   user-select: none;
   display: grid;
-  grid-template-columns: 56px repeat(7, minmax(120px, 1fr));
+  grid-template-columns: var(--size-time-gutter) repeat(7, minmax(120px, 1fr));
   min-width: 900px;
 }
 
@@ -521,15 +565,18 @@ main {
 }
 
 .day-head .count {
-  font-size: 11px;
+  font-family: var(--font-data);
+  font-size: 12px;
   font-weight: 500;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .hour-label {
-  font-size: 11px;
-  color: var(--text-3);
-  padding: 4px 8px 0 0;
+  font-family: var(--font-data);
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--text-2);
+  padding: 4px var(--space-1) 0 0;
   text-align: right;
   border-bottom: 1px solid var(--border);
 }
@@ -563,11 +610,11 @@ main {
   width: 100%;
   text-align: left;
   padding: 3px 6px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: 13px;
+  line-height: 1.45;
   touch-action: none;
 }
 
@@ -575,9 +622,13 @@ main {
   cursor: grab;
 }
 
-.chip-scheduled {
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+.chip-article {
+  background: var(--chip-soft);
+  border-color: var(--chip-ink);
+}
+
+.chip-article .chip-title {
+  font-weight: 600;
 }
 
 .chip-published {
@@ -594,7 +645,9 @@ main {
 }
 
 .chip.highlight {
-  box-shadow: 0 0 0 2px var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .chip.dragging {
@@ -623,9 +676,10 @@ main {
 }
 
 .chip-time {
+  font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .chip-title {
@@ -639,7 +693,7 @@ main {
 .tray {
   background: var(--surface);
   border: 1px dashed var(--border-strong);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 12px;
   overflow: auto;
   min-height: 0;
@@ -681,7 +735,7 @@ main {
   overflow: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
 }
 
 .inline-time {
@@ -966,7 +1020,7 @@ button.small {
 }
 
 .source {
-  font-size: 11px;
+  font-size: 12px;
   padding: 0 6px;
   border-radius: 8px;
   background: var(--surface-2);
@@ -1138,8 +1192,9 @@ button.small {
 }
 
 .tile-hint {
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 12px;
+  line-height: 16px;
 }
 
 .bars {
