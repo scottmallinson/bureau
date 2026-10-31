@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ProviderName } from '../api.js';
 import { authClient } from '../auth.js';
-import { Icon } from './common.js';
+import { Icon, Wordmark } from './common.js';
 
 const LABELS: Record<ProviderName, string> = {
   google: 'Google',
@@ -43,7 +43,7 @@ export function SignIn({ providers }: { providers: ProviderName[] }) {
     <div className="sign-in">
       <div className="sign-in-card">
         <div className="brand">
-          <span className="logo" aria-hidden />
+          <Wordmark size={28} />
           Bureau
         </div>
         {error && (

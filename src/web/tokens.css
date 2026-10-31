@@ -1,0 +1,275 @@
+/* Bureau design tokens — generated from the design system's tokens.json.
+   Do not edit by hand: change the system, then run scripts/build-tokens.mjs. */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --surface-page: #f0ece1;
+  --surface-card: #fdfcf9;
+  --surface-sunken: #e5e0d2;
+  --surface-raised: #ffffff;
+  --surface-hover: #e9e4d7;
+  --ink: #221d16;
+  --ink-muted: #635a4c;
+  --ink-faint: #8a8070;
+  --ink-inverse: #faf7f1;
+  --line: #dcd4c2;
+  --line-strong: #8c8167;
+  --accent: #b4432a;
+  --accent-strong: #8f3320;
+  --on-accent: #fff8f3;
+  --accent-soft: #f9e7df;
+  --focus-ring: var(--accent-strong);
+  --ok: #0f6476;
+  --ok-soft: #ddeff2;
+  --warn: #8a5a00;
+  --warn-soft: #f8ecd4;
+  --danger: #a32b1f;
+  --danger-soft: #fae3df;
+  --cat-0: #6a6354;
+  --cat-1: #3f4aa0;
+  --cat-2: #0d6a74;
+  --cat-3: #15639e;
+  --cat-4: #7b3480;
+  --cat-5: #4a6a1e;
+  --cat-6: #5a4a8c;
+  --cat-7: #a32a63;
+  --cat-8: #9b4a1c;
+  --cat-0-soft: #ebe7dc;
+  --cat-1-soft: #e6e7f6;
+  --cat-2-soft: #ddeff0;
+  --cat-3-soft: #ddebf7;
+  --cat-4-soft: #f1e3f2;
+  --cat-5-soft: #e8f0dc;
+  --cat-6-soft: #e9e6f3;
+  --cat-7-soft: #f8e2ec;
+  --cat-8-soft: #f7e6d9;
+  --scrim: rgba(34, 29, 22, 0.56);
+  --shadow-panel: 0 1px 2px rgba(34, 29, 22, 0.06), 0 8px 24px rgba(34, 29, 22, 0.1);
+  --shadow-lift: 0 2px 4px rgba(34, 29, 22, 0.1), 0 14px 28px rgba(34, 29, 22, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface-page: #14120f;
+    --surface-card: #1d1a16;
+    --surface-sunken: #0e0c0a;
+    --surface-raised: #27231e;
+    --surface-hover: #262219;
+    --ink: #f4efe6;
+    --ink-muted: #a79c8c;
+    --ink-faint: #7b7263;
+    --ink-inverse: #f4efe6;
+    --line: #332e27;
+    --line-strong: #7b7263;
+    --accent: #e7765a;
+    --accent-strong: #f3a58e;
+    --on-accent: #2b0f07;
+    --accent-soft: #35201a;
+    --focus-ring: var(--accent-strong);
+    --ok: #5fc9d8;
+    --ok-soft: #10272c;
+    --warn: #e8b23c;
+    --warn-soft: #2e2514;
+    --danger: #f08a7a;
+    --danger-soft: #331512;
+    --cat-0: #aaa291;
+    --cat-1: #a3abf5;
+    --cat-2: #52ccd6;
+    --cat-3: #7cbcea;
+    --cat-4: #d99ade;
+    --cat-5: #a9cf6b;
+    --cat-6: #b0a3e0;
+    --cat-7: #f28cba;
+    --cat-8: #e99566;
+    --cat-0-soft: #2a2721;
+    --cat-1-soft: #23243c;
+    --cat-2-soft: #16292c;
+    --cat-3-soft: #16242f;
+    --cat-4-soft: #2b1e2d;
+    --cat-5-soft: #222a18;
+    --cat-6-soft: #262237;
+    --cat-7-soft: #301925;
+    --cat-8-soft: #2d2017;
+    --scrim: rgba(5, 4, 3, 0.68);
+    --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.55);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.55), 0 14px 28px rgba(0, 0, 0, 0.6);
+  }
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-page: #14120f;
+  --surface-card: #1d1a16;
+  --surface-sunken: #0e0c0a;
+  --surface-raised: #27231e;
+  --surface-hover: #262219;
+  --ink: #f4efe6;
+  --ink-muted: #a79c8c;
+  --ink-faint: #7b7263;
+  --ink-inverse: #f4efe6;
+  --line: #332e27;
+  --line-strong: #7b7263;
+  --accent: #e7765a;
+  --accent-strong: #f3a58e;
+  --on-accent: #2b0f07;
+  --accent-soft: #35201a;
+  --focus-ring: var(--accent-strong);
+  --ok: #5fc9d8;
+  --ok-soft: #10272c;
+  --warn: #e8b23c;
+  --warn-soft: #2e2514;
+  --danger: #f08a7a;
+  --danger-soft: #331512;
+  --cat-0: #aaa291;
+  --cat-1: #a3abf5;
+  --cat-2: #52ccd6;
+  --cat-3: #7cbcea;
+  --cat-4: #d99ade;
+  --cat-5: #a9cf6b;
+  --cat-6: #b0a3e0;
+  --cat-7: #f28cba;
+  --cat-8: #e99566;
+  --cat-0-soft: #2a2721;
+  --cat-1-soft: #23243c;
+  --cat-2-soft: #16292c;
+  --cat-3-soft: #16242f;
+  --cat-4-soft: #2b1e2d;
+  --cat-5-soft: #222a18;
+  --cat-6-soft: #262237;
+  --cat-7-soft: #301925;
+  --cat-8-soft: #2d2017;
+  --scrim: rgba(5, 4, 3, 0.68);
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.55), 0 14px 28px rgba(0, 0, 0, 0.6);
+}
+
+:root {
+  --space-half: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 7px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --size-hairline: 1px;
+  --size-rail: 3px;
+  --size-control-sm: 28px;
+  --size-control-md: 34px;
+  --size-control-lg: 44px;
+  --size-icon: 16px;
+  --size-icon-lg: 20px;
+  --size-time-gutter: 40px;
+  --size-app-gutter: 24px;
+  --size-measure: 66ch;
+  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Azeret Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.display-l {
+  font-family: var(--font-sans);
+  font-size: 64px;
+  line-height: 60px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.display-m {
+  font-family: var(--font-sans);
+  font-size: 40px;
+  line-height: 42px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+.display-s {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  line-height: 30px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.heading-l {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.heading-m {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 700;
+}
+.heading-s {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.lede {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  line-height: 29px;
+  font-weight: 400;
+}
+.body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 23px;
+  font-weight: 400;
+}
+.body-sm {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+}
+.caption {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+.numeral-xl {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  line-height: 38px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.numeral {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.time {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 18px;
+  font-weight: 400;
+}
