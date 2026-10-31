@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeTheme, safeStorage, shell } from 'electron';
 import electronUpdater from 'electron-updater';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -113,6 +113,14 @@ function createWindow(): void {
     minHeight: 600,
     title: 'Bureau',
     show: false,
+    // The design system's page ground, so the window never flashes white
+    // before the UI paints. Lamplight gets its own value below.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#14120f' : '#f0ece1',
+    // macOS hides the title bar and lets the app's own top bar absorb the
+    // traffic-light inset; see the design system's app-patterns.md.
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 18 } }
+      : {}),
     webPreferences: {
       preload: join(here, 'preload.cjs'),
       contextIsolation: true,
@@ -123,6 +131,10 @@ function createWindow(): void {
 
   // Bureau's own pages stay in the window; links to posts and services open in
   // the default browser.
+  nativeTheme.on('updated', () => {
+    window?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#14120f' : '#f0ece1');
+  });
+
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
