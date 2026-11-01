@@ -2,6 +2,11 @@ name: CI
 
 on:
   pull_request:
+    # The default types leave out `edited`, so a pull request whose title fails
+    # the commitlint check below cannot be fixed by correcting the title: the
+    # job reads the title from the event payload, and re-running a job replays
+    # the payload it already had. Listing the types explicitly adds `edited`.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
