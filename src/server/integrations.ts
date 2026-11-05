@@ -162,7 +162,10 @@ export class Integrations {
       return { channels: channels.length, items: items.length };
     } catch (error) {
       const name = input.id === 'ghost' ? 'Ghost' : 'Buffer';
-      const reason = (error as Error).message.replace(/^(ghost|buffer): /, '');
+      const { message, cause } = error as Error;
+      // Node reports every network failure as "fetch failed"; the cause says why.
+      const detail = cause instanceof Error ? `${message} (${cause.message})` : message;
+      const reason = detail.replace(/^(ghost|buffer): /, '');
       throw new BureauError(`Could not connect to ${name}: ${reason}`, 422);
     }
   }

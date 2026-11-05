@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeTheme, net, safeStorage, shell } from 'electron';
 import electronUpdater from 'electron-updater';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -168,6 +168,9 @@ async function start(): Promise<void> {
   const server = await serveBureau(config, {
     webRoot: join(here, '..', 'web'),
     secrets,
+    // Node's fetch ignores the system proxy and certificate store, so Ghost and
+    // Buffer were unreachable on networks that inspect TLS. Chromium's does not.
+    fetch: (input, init) => net.fetch(input instanceof URL ? input.href : input, init),
     loopbackHostOnly: true,
   });
   origin = `http://127.0.0.1:${server.port}`;
