@@ -223,6 +223,22 @@ describe('Settings API', () => {
 });
 
 describe('Testing a connection', () => {
+  it('includes the cause of a network failure', async () => {
+    const dataDir = await tempDir();
+    const config = loadConfig({ BUREAU_DATA_DIR: dataDir });
+    const fetch = (async () => {
+      throw new TypeError('fetch failed', {
+        cause: new Error('unable to get local issuer certificate'),
+      });
+    }) as typeof globalThis.fetch;
+    const integrations = new Integrations(config, fileStorage(dataDir), { fetch });
+    await expect(
+      integrations.test({ id: 'ghost', url: 'https://example.com', adminApiKey: GHOST_KEY }),
+    ).rejects.toMatchObject({
+      message: 'Could not connect to Ghost: fetch failed (unable to get local issuer certificate)',
+    });
+  });
+
   it('says which service failed and why', async () => {
     const { integrations } = await setup();
     await expect(

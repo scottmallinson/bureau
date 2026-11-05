@@ -12,6 +12,8 @@ export interface ServeOptions {
   /** The built UI to serve next to the API, when it exists. */
   webRoot?: string;
   secrets?: SecretBox;
+  /** How live providers make requests. The desktop app passes Chromium's, see `main.ts`. */
+  fetch?: typeof fetch;
   /**
    * Answer only requests addressed to this server by its loopback address, so
    * a web page cannot reach it by pointing its own domain at 127.0.0.1 (DNS
@@ -26,10 +28,10 @@ export function serveBureau(
   config: Config,
   options: ServeOptions = {},
 ): Promise<{ port: number; close: () => Promise<void> }> {
-  const { bureau, integrations } = createServices(
-    config,
-    options.secrets ? { secrets: options.secrets } : {},
-  );
+  const { bureau, integrations } = createServices(config, {
+    secrets: options.secrets,
+    fetch: options.fetch,
+  });
   const app = new Hono();
   let port = config.port;
 

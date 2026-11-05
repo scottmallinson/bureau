@@ -17,7 +17,10 @@ export interface Services {
  * Bureau over live providers where credentials exist, from the environment or
  * from Settings, and mock ones everywhere else.
  */
-export function createServices(config: Config, options: { secrets?: SecretBox } = {}): Services {
+export function createServices(
+  config: Config,
+  options: { secrets?: SecretBox; fetch?: typeof fetch } = {},
+): Services {
   const storage = createStorage(config.store);
   const integrations = new Integrations(config, storage, options);
   const bureau = new Bureau(integrations.providers, storage, { historyDays: config.historyDays });
