@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, net, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, net, safeStorage, shell } from 'electron';
 import electronUpdater from 'electron-updater';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,6 +105,19 @@ function registerIpc(): void {
   });
 }
 
+/**
+ * Bureau has no menu bar of its own. macOS needs the application menu for Quit
+ * and Hide, and the Edit menu for copy, paste and undo, so keep those two there.
+ * Windows and Linux handle those keys in the window, so they get no menu.
+ */
+function installMenu(): void {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]));
+}
+
 function createWindow(): void {
   window = new BrowserWindow({
     width: 1360,
@@ -178,6 +191,7 @@ async function start(): Promise<void> {
 
   registerIpc();
   setUpUpdates();
+  installMenu();
   createWindow();
 }
 
