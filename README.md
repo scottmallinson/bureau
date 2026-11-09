@@ -95,8 +95,10 @@ How each service maps onto Bureau:
   does not answer it, Ghost views are simply left out.
 - **Buffer.** Uses Buffer's GraphQL API. Moving a time is `editPost` with a
   custom `dueAt`; removing a time moves the post to drafts. Metrics come from
-  each post's `metrics`. Buffer's API reports no follower counts, so enter them
-  on the _Analytics_ page; Bureau records when you did.
+  each post's `metrics`. Buffer's API reports no follower counts. Mastodon
+  channels are the exception: Bureau reads the count from the instance their
+  profile link points at, which needs no token. For everything else, enter the
+  count on the _Analytics_ page; Bureau records when you did.
 
 ## Signing in
 

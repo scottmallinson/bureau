@@ -9,6 +9,7 @@ import type {
   QueueItem,
 } from '../../core/types.js';
 import type { BufferConfig } from '../config.js';
+import { fetchMastodonFollowers } from './mastodon.js';
 import { externalId, firstLine, preview, ProviderError, type Provider } from './types.js';
 
 /** The subset of Buffer's GraphQL `Post` Bureau reads. */
@@ -56,8 +57,9 @@ type Fetch = typeof fetch;
  * clearing a time moves the post back to drafts with `saveToDraft`, which is
  * the API's equivalent of the "remove scheduled time" action in Buffer's UI.
  *
- * Buffer's API does not report follower counts, so Buffer channels get theirs
- * from values entered by hand in Bureau.
+ * Buffer's API does not report follower counts. Mastodon channels read theirs
+ * from the instance their profile link points at; every other channel gets its
+ * count from a value entered by hand in Bureau.
  */
 export class BufferProvider implements Provider {
   readonly id = 'buffer' as const;
@@ -195,8 +197,14 @@ export class BufferProvider implements Provider {
       });
   }
 
-  async fetchChannelStats(): Promise<ChannelStats[]> {
-    return [];
+  async fetchChannelStats(channels: Channel[]): Promise<ChannelStats[]> {
+    const mastodon = channels.filter((channel) => channel.platform === 'mastodon');
+    const stats = await Promise.all(
+      mastodon.map((channel) =>
+        fetchMastodonFollowers(channel, this.fetchImpl).catch(() => undefined),
+      ),
+    );
+    return stats.filter((entry): entry is ChannelStats => entry !== undefined);
   }
 }
 
