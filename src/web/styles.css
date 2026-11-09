@@ -565,6 +565,7 @@ main {
 }
 
 .day-head .count {
+  margin-left: auto;
   font-family: var(--font-data);
   font-size: 12px;
   font-weight: 500;
@@ -576,7 +577,7 @@ main {
   font-size: 13px;
   line-height: 16px;
   color: var(--text-2);
-  padding: 4px var(--space-1) 0 0;
+  padding: 4px var(--space-2) 0 var(--space-1);
   text-align: right;
   border-bottom: 1px solid var(--border);
 }
