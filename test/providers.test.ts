@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bufferMetrics, BufferProvider } from '../src/server/providers/buffer.js';
 import { GhostProvider } from '../src/server/providers/ghost.js';
+import { fetchMastodonFollowers, mastodonProfile } from '../src/server/providers/mastodon.js';
 import { fakeFetch } from './helpers.js';
 
 const ghostConfig = {
@@ -205,5 +206,73 @@ describe('bufferMetrics', () => {
       ]),
     ).toEqual({ impressions: 100, reactions: 7, shares: 3 });
     expect(bufferMetrics([{ type: 'likes', value: 4 }])).toEqual({ reactions: 4 });
+  });
+});
+
+describe('Mastodon follower counts', () => {
+  it('reads the account from the instance named in the profile link', () => {
+    expect(mastodonProfile('https://mastodon.test/@scott')).toEqual({
+      origin: 'https://mastodon.test',
+      acct: 'scott',
+    });
+    expect(mastodonProfile('https://mastodon.test/@scott@other.example/')).toEqual({
+      origin: 'https://mastodon.test',
+      acct: 'scott@other.example',
+    });
+    expect(mastodonProfile('https://www.linkedin.com/in/scott')).toBeUndefined();
+    expect(mastodonProfile('http://mastodon.test/@scott')).toBeUndefined();
+    expect(mastodonProfile('not a link')).toBeUndefined();
+  });
+
+  it('reads followers for Mastodon channels only, leaving out any that fail', async () => {
+    const { fetch, calls } = fakeFetch((url) => {
+      if (url.endsWith('acct=gone')) throw new Error('ECONNREFUSED');
+      return { id: '1', username: 'scott', followers_count: 381 };
+    });
+    const provider = new BufferProvider(bufferConfig, fetch);
+    const stats = await provider.fetchChannelStats([
+      {
+        id: 'buffer:ma',
+        provider: 'buffer',
+        platform: 'mastodon',
+        name: 'Scott',
+        url: 'https://mastodon.test/@scott',
+      },
+      {
+        id: 'buffer:li',
+        provider: 'buffer',
+        platform: 'linkedin',
+        name: 'Scott',
+        url: 'https://www.linkedin.com/in/scott',
+      },
+      {
+        id: 'buffer:gone',
+        provider: 'buffer',
+        platform: 'mastodon',
+        name: 'Gone',
+        url: 'https://mastodon.test/@gone',
+      },
+    ]);
+
+    expect(stats).toEqual([{ channelId: 'buffer:ma', followers: 381, followersSource: 'api' }]);
+    expect(calls.map((call) => call.url)).toEqual([
+      'https://mastodon.test/api/v1/accounts/lookup?acct=scott',
+      'https://mastodon.test/api/v1/accounts/lookup?acct=gone',
+    ]);
+  });
+
+  it('leaves out an instance that answers without a count', async () => {
+    const { fetch } = fakeFetch(() => new Response('{"error":"Not found"}', { status: 404 }));
+    const stats = await fetchMastodonFollowers(
+      {
+        id: 'buffer:ma',
+        provider: 'buffer',
+        platform: 'mastodon',
+        name: 'Scott',
+        url: 'https://mastodon.test/@scott',
+      },
+      fetch,
+    );
+    expect(stats).toBeUndefined();
   });
 });
