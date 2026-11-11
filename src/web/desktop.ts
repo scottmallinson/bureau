@@ -12,6 +12,8 @@ export interface DesktopBridge {
     install(): Promise<void>;
     onChange(listener: (state: UpdateState) => void): () => void;
   };
+  /** Opens a Dispatch compose link in the Dispatch app. Refused for any other link. */
+  openDispatch(link: string): Promise<void>;
 }
 
 export const desktop: DesktopBridge | undefined = (

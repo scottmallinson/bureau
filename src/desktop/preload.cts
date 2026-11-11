@@ -10,6 +10,7 @@ const channels = {
   check: 'bureau:updates:check',
   install: 'bureau:updates:install',
   changed: 'bureau:updates:changed',
+  openDispatch: 'bureau:dispatch:open',
 };
 
 contextBridge.exposeInMainWorld('bureauDesktop', {
@@ -24,4 +25,5 @@ contextBridge.exposeInMainWorld('bureauDesktop', {
       return () => ipcRenderer.removeListener(channels.changed, handler);
     },
   },
+  openDispatch: (link: string): Promise<void> => ipcRenderer.invoke(channels.openDispatch, link),
 });

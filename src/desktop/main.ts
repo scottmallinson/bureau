@@ -6,6 +6,7 @@ import { loadConfig } from '../server/config.js';
 import type { SecretBox } from '../server/integrations.js';
 import { serveBureau } from '../server/node.js';
 import type { UpdateState } from '../core/updates.js';
+import { isDispatchComposeLink } from '../core/dispatch.js';
 import { UPDATE_CHANNELS } from './updates.js';
 
 // electron-updater is CommonJS; this is its documented ESM import.
@@ -14,6 +15,8 @@ const { autoUpdater } = electronUpdater;
 const here = fileURLToPath(new URL('.', import.meta.url));
 const CHECK_EVERY_MS = 6 * 60 * 60_000;
 const SEALED = 'safe:';
+/** Kept in step with openDispatch in preload.cts. */
+const OPEN_DISPATCH = 'bureau:dispatch:open';
 
 /**
  * Keys saved in Settings are encrypted with the operating system's keychain
@@ -102,6 +105,14 @@ function registerIpc(): void {
   });
   ipcMain.handle(UPDATE_CHANNELS.install, () => {
     if (updateState.status === 'ready') autoUpdater.quitAndInstall();
+  });
+  // The window cannot open another app itself, so a Dispatch link comes here.
+  // Only compose links pass; anything else is refused.
+  ipcMain.handle(OPEN_DISPATCH, (_event, link: unknown) => {
+    if (typeof link !== 'string' || !isDispatchComposeLink(link)) {
+      throw new Error('Only Dispatch compose links can be opened from Bureau.');
+    }
+    return shell.openExternal(link);
   });
 }
 
