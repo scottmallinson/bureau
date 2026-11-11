@@ -583,6 +583,7 @@ main {
 }
 
 .cell {
+  position: relative;
   min-height: 44px;
   border-left: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
@@ -604,6 +605,45 @@ main {
 .cell.over {
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.cell:not(.past) {
+  cursor: pointer;
+}
+
+/* The new-post menu a click on an empty cell opens. */
+.cell-menu {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 5;
+  width: 220px;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: default;
+}
+
+.cell-menu-when {
+  margin: 0;
+  font-weight: 600;
+}
+
+.cell-menu-action {
+  justify-self: start;
+  font-weight: 600;
+}
+
+.cell-menu-hint {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
 }
 
 .chip {

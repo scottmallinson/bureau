@@ -12,11 +12,12 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { PLATFORMS } from '../../core/platforms.js';
 import type { Platform, QueueItem } from '../../core/types.js';
 import { Icon, isArticle, PlatformBadge, PlatformDot, StatusPill } from '../components/common.js';
+import { CellMenu } from '../components/CellMenu.js';
 import { ItemPanel } from '../components/ItemPanel.js';
 import {
   addDays,
@@ -287,12 +288,15 @@ function HourRow({
         {String(hour).padStart(2, '0')}:00
       </div>
       {days.map((day) => {
+        const start = new Date(day);
+        start.setHours(hour, 0, 0, 0);
         const end = new Date(day);
         end.setHours(hour + 1, 0, 0, 0);
         return (
           <Cell
             key={dayKey(day)}
             id={`slot:${dayKey(day)}:${hour}`}
+            start={start}
             past={end.getTime() <= now.getTime()}
             items={byCell.get(`${dayKey(day)}:${hour}`) ?? []}
             {...chip}
@@ -305,20 +309,53 @@ function HourRow({
 
 function Cell({
   id,
+  start,
   past,
   items,
   ...chip
-}: ChipListProps & { id: string; past: boolean; items: QueueItem[] }) {
+}: ChipListProps & { id: string; start: Date; past: boolean; items: QueueItem[] }) {
   const { setNodeRef, isOver } = useDroppable({ id, disabled: past });
+  const cell = useRef<HTMLDivElement | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const attach = useCallback(
+    (node: HTMLDivElement | null) => {
+      cell.current = node;
+      setNodeRef(node);
+    },
+    [setNodeRef],
+  );
+
+  // A click on the cell's own empty space opens the new-post menu. Clicks on
+  // a chip select that item instead, so they are left alone.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!cell.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
   return (
     <div
-      ref={setNodeRef}
+      ref={attach}
       className={`cell ${past ? 'past' : ''} ${isOver ? 'over' : ''}`}
       role="gridcell"
+      onClick={(event) => {
+        if (!past && event.target === event.currentTarget) setMenuOpen((open) => !open);
+      }}
     >
       {items.map((item) => (
         <Chip key={item.id} item={item} {...chip} />
       ))}
+      {menuOpen && <CellMenu at={start} />}
     </div>
   );
 }
