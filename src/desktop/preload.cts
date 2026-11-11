@@ -11,6 +11,7 @@ const channels = {
   install: 'bureau:updates:install',
   changed: 'bureau:updates:changed',
   openDispatch: 'bureau:dispatch:open',
+  dispatchInstalled: 'bureau:dispatch:installed',
 };
 
 contextBridge.exposeInMainWorld('bureauDesktop', {
@@ -26,4 +27,5 @@ contextBridge.exposeInMainWorld('bureauDesktop', {
     },
   },
   openDispatch: (link: string): Promise<void> => ipcRenderer.invoke(channels.openDispatch, link),
+  dispatchInstalled: (): Promise<boolean> => ipcRenderer.invoke(channels.dispatchInstalled),
 });

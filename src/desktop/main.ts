@@ -17,6 +17,8 @@ const CHECK_EVERY_MS = 6 * 60 * 60_000;
 const SEALED = 'safe:';
 /** Kept in step with openDispatch in preload.cts. */
 const OPEN_DISPATCH = 'bureau:dispatch:open';
+/** Kept in step with dispatchInstalled in preload.cts. */
+const DISPATCH_INSTALLED = 'bureau:dispatch:installed';
 
 /**
  * Keys saved in Settings are encrypted with the operating system's keychain
@@ -113,6 +115,15 @@ function registerIpc(): void {
       throw new Error('Only Dispatch compose links can be opened from Bureau.');
     }
     return shell.openExternal(link);
+  });
+  // Asks the operating system which app handles dispatch:// links. An empty
+  // name means none does, so the calendar menu can offer the download instead.
+  ipcMain.handle(DISPATCH_INSTALLED, () => {
+    try {
+      return app.getApplicationNameForProtocol('dispatch://compose') !== '';
+    } catch {
+      return false;
+    }
   });
 }
 
