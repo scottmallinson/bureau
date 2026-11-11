@@ -14,6 +14,8 @@ export interface DesktopBridge {
   };
   /** Opens a Dispatch compose link in the Dispatch app. Refused for any other link. */
   openDispatch(link: string): Promise<void>;
+  /** Whether the operating system has an app for dispatch:// links. */
+  dispatchInstalled(): Promise<boolean>;
 }
 
 export const desktop: DesktopBridge | undefined = (
